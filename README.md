@@ -2,7 +2,9 @@
 
 ### Supercharge Claude Code, Cursor, OpenCode, Codex CLI, and Antigravity with Token-Efficient Repository Intelligence
 
-**Up to 45.9% fewer tokens** • **Up to 54.3% fewer exploration loops** • **Up to 42.1% fewer tool interactions** • **100% local**
+**Up to 45.9% fewer tokens**
+**Up to 54.3% fewer exploration loops**
+**Up to 42.1% fewer tool interactions** **100% local**
 
 > Spend tokens on reasoning, not retrieval.
 
