@@ -85,21 +85,6 @@ ESTIMATED TOTAL: $0.0000
 Note: This estimate uses standard API pricing from models.json.
 Actual API costs may vary based on provider and context size.
 
-══════════════════════════════════════════════════════════════════════════
-AVAILABLE SKILLS (always-available context)
-─────────────────────────────────────────────────────────────────────────
-
-These skills were recovered from the skill tool metadata available to this session.
-
-  Skill                  Description                                   Tokens
-  ───────────────────────────────────────────────────────────────────────
-  customize-opencode     Use ONLY when the user is editing or creatin…     ~91
-  graphify               Use for any question about a codebase, its a…     ~78
-  ───────────────────────────────────────────────────────────────────────
-  Total: ~169 tokens (2 skills available)
-
-  Note: Full skill tool description is ~360 tokens (includes boilerplate).
-
 ═══════════════════════════════════════════════════════════════════════════
 AVAILABLE SUBAGENTS (in task tool definition)
 ─────────────────────────────────────────────────────────────────────────
