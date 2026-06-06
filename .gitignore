@@ -1,0 +1,17 @@
+AGENTS.md
+architecture-validation.md
+benchmark-excellence-report.md
+benchmark-report.json
+benchmark-report.md
+BENCHMARK_TRUST_REPORT.md
+costaffective-benchmark-report.md
+phase6-final-report.md
+production-installation-review.md
+retriever-failure-investigation.md
+router-audit-report.md
+reports/
+tests/
+benchmarks/
+.mycli/
+.mycli-fts/
+.git/

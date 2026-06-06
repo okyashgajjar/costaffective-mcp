@@ -1,0 +1,39 @@
+package mcpserver
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestNewServer(t *testing.T) {
+	s := NewServer()
+	if s == nil {
+		t.Fatalf("NewServer returned nil")
+	}
+}
+
+func TestGetOrCreateRepoSession(t *testing.T) {
+	tempDir := t.TempDir()
+	
+	// mock a .git folder to make it a valid repo
+	os.MkdirAll(filepath.Join(tempDir, ".git"), 0755)
+
+	ctx := context.Background()
+	rs1, err := GetOrCreateRepoSession(ctx, tempDir)
+	if err != nil {
+		t.Fatalf("Failed to get or create: %v", err)
+	}
+
+	rs2, err := GetOrCreateRepoSession(ctx, tempDir)
+	if err != nil {
+		t.Fatalf("Failed to get or create again: %v", err)
+	}
+
+	if rs1 != rs2 {
+		t.Errorf("Expected identical sessions, got different instances")
+	}
+
+	CloseAllSessions()
+}
