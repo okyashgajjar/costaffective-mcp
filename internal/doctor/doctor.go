@@ -149,24 +149,9 @@ func CheckMCPConfigs() []CheckResult {
 			continue
 		}
 
-		var parsed interface{}
-		if err := json.Unmarshal(data, &parsed); err != nil {
-			check.Status = FAIL
-			check.Detail = fmt.Sprintf("Invalid JSON in %s: %s", installer.Tildify(configPath), err)
-			results = append(results, check)
-			continue
-		}
-
-		if strings.Contains(string(data), installer.DefaultBinaryPath()) {
-			check.Status = PASS
-			check.Detail = installer.Tildify(configPath)
-		} else if strings.Contains(string(data), `"costaffective"`) {
-			check.Status = WARN
-			check.Detail = fmt.Sprintf("%s uses a relative binary path", installer.Tildify(configPath))
-		} else {
-			check.Status = PASS
-			check.Detail = installer.Tildify(configPath)
-		}
+		status, detail := validateMCPConfig(configPath, data)
+		check.Status = status
+		check.Detail = detail
 
 		results = append(results, check)
 	}
@@ -182,15 +167,117 @@ func CheckMCPConfigs() []CheckResult {
 	return results
 }
 
+func validateMCPConfig(configPath string, data []byte) (Status, string) {
+	switch filepath.Ext(configPath) {
+	case ".toml":
+		return validateTOMLMCPConfig(configPath, string(data))
+	case ".yaml", ".yml":
+		return validateYAMLMCPConfig(configPath, string(data))
+	default:
+		var parsed interface{}
+		if err := json.Unmarshal(data, &parsed); err != nil {
+			return FAIL, fmt.Sprintf("Invalid JSON in %s: %s", installer.Tildify(configPath), err)
+		}
+		return validateJSONMCPConfig(configPath, string(data))
+	}
+}
+
+func validateJSONMCPConfig(configPath, content string) (Status, string) {
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(content), &parsed); err != nil {
+		return FAIL, fmt.Sprintf("Invalid JSON in %s: %s", installer.Tildify(configPath), err)
+	}
+
+	if command, ok := extractJSONCommand(parsed); ok {
+		if isKnownBinaryPath(command) {
+			return PASS, installer.Tildify(configPath)
+		}
+		if command == "costaffective" || command == "costaffective.exe" {
+			return WARN, fmt.Sprintf("%s uses a relative binary path", installer.Tildify(configPath))
+		}
+		return FAIL, fmt.Sprintf("%s points at %q instead of an installed CostAffective binary", installer.Tildify(configPath), command)
+	}
+
+	return FAIL, fmt.Sprintf("Could not find MCP command entry in %s", installer.Tildify(configPath))
+}
+
+func extractJSONCommand(parsed map[string]interface{}) (string, bool) {
+	if mcpServers, ok := parsed["mcpServers"].(map[string]interface{}); ok {
+		if server, ok := mcpServers["costaffective"].(map[string]interface{}); ok {
+			if command, ok := server["command"].(string); ok {
+				return command, true
+			}
+		}
+	}
+
+	if mcp, ok := parsed["mcp"].(map[string]interface{}); ok {
+		if server, ok := mcp["costaffective"].(map[string]interface{}); ok {
+			if command, ok := server["command"]; ok {
+				switch v := command.(type) {
+				case string:
+					return v, true
+				case []interface{}:
+					if len(v) > 0 {
+						if s, ok := v[0].(string); ok {
+							return s, true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return "", false
+}
+
+func validateTOMLMCPConfig(configPath, content string) (Status, string) {
+	section := "[mcp_servers.costaffective]"
+	if !strings.Contains(content, section) {
+		return FAIL, fmt.Sprintf("Missing %s in %s", section, installer.Tildify(configPath))
+	}
+
+	for _, candidate := range installer.GetBinaryCandidates() {
+		if strings.Contains(content, fmt.Sprintf("command = \"%s\"", candidate)) {
+			return PASS, installer.Tildify(configPath)
+		}
+	}
+
+	if strings.Contains(content, "command = \"costaffective\"") || strings.Contains(content, "command = \"costaffective.exe\"") {
+		return WARN, fmt.Sprintf("%s uses a relative binary path", installer.Tildify(configPath))
+	}
+	return FAIL, fmt.Sprintf("Codex config does not reference an installed binary: %s", installer.Tildify(configPath))
+}
+
+func validateYAMLMCPConfig(configPath, content string) (Status, string) {
+	for _, candidate := range installer.GetBinaryCandidates() {
+		if strings.Contains(content, candidate) {
+			return PASS, installer.Tildify(configPath)
+		}
+	}
+	if strings.Contains(content, "costaffective") || strings.Contains(content, "costaffective.exe") {
+		return WARN, fmt.Sprintf("%s uses a relative binary path", installer.Tildify(configPath))
+	}
+	return PASS, installer.Tildify(configPath)
+}
+
+func isKnownBinaryPath(command string) bool {
+	for _, candidate := range installer.GetBinaryCandidates() {
+		if command == candidate {
+			return true
+		}
+	}
+	return false
+}
+
 func CheckMCPStartup() []CheckResult {
 	binaryPath := installer.BinaryPath()
-	if binaryPath == "costaffective" {
+	if filepath.Base(binaryPath) == filepath.Base(installer.DefaultBinaryPath()) {
 		binaryPath = installer.DefaultBinaryPath()
 	}
 
 	if !installer.Exists(binaryPath) {
 		// Try fallback
-		if p, err := exec.LookPath("costaffective"); err == nil {
+		if p, err := exec.LookPath(filepath.Base(binaryPath)); err == nil {
 			binaryPath = p
 		} else {
 			return []CheckResult{{

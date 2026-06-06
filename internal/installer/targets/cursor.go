@@ -52,18 +52,10 @@ func (t *CursorTarget) Install(loc installer.Location, opts installer.InstallOpt
 }
 
 func (t *CursorTarget) buildMcpConfig(loc installer.Location) map[string]interface{} {
-	// Cursor launches MCP servers with wrong cwd; inject --path
-	var pathArg string
-	if loc == installer.LocationLocal {
-		cwd, _ := os.Getwd()
-		pathArg = cwd
-	} else {
-		pathArg = "${workspaceFolder}"
-	}
 	return map[string]interface{}{
 		"type":    "stdio",
 		"command": installer.BinaryPath(),
-		"args":    []string{"serve", "--path", pathArg},
+		"args":    []string{"serve"},
 	}
 }
 

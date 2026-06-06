@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -108,8 +109,12 @@ func TestDefaultBinaryPath(t *testing.T) {
 	if !strings.Contains(path, "costaffective") {
 		t.Fatalf("DefaultBinaryPath should contain 'costaffective': %s", path)
 	}
-	if !strings.HasSuffix(path, "costaffective") {
-		t.Fatalf("DefaultBinaryPath should end with 'costaffective': %s", path)
+	wantSuffix := "costaffective"
+	if runtime.GOOS == "windows" {
+		wantSuffix = "costaffective.exe"
+	}
+	if !strings.HasSuffix(path, wantSuffix) {
+		t.Fatalf("DefaultBinaryPath should end with %q: %s", wantSuffix, path)
 	}
 }
 
@@ -190,8 +195,12 @@ func TestActionableError(t *testing.T) {
 
 func TestBinaryPathDefault(t *testing.T) {
 	SetBinaryPath("")
-	if BinaryPath() != "costaffective" {
-		t.Fatalf("default BinaryPath should be 'costaffective', got %q", BinaryPath())
+	want := "costaffective"
+	if runtime.GOOS == "windows" {
+		want = "costaffective.exe"
+	}
+	if BinaryPath() != want {
+		t.Fatalf("default BinaryPath should be %q, got %q", want, BinaryPath())
 	}
 }
 

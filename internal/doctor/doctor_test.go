@@ -125,6 +125,69 @@ func TestDoctorMCPConfigs(t *testing.T) {
 	}
 }
 
+func TestDoctorCodexRepairRoundTrip(t *testing.T) {
+	binPath := buildTempBinary(t)
+
+	homeDir := t.TempDir()
+	origHome := os.Getenv("HOME")
+	if err := os.Setenv("HOME", homeDir); err != nil {
+		t.Fatalf("set HOME: %v", err)
+	}
+	defer os.Setenv("HOME", origHome)
+
+	defaultBin := installer.DefaultBinaryPath()
+	if err := os.MkdirAll(filepath.Dir(defaultBin), 0755); err != nil {
+		t.Fatalf("mkdir default bin dir: %v", err)
+	}
+
+	data, err := os.ReadFile(binPath)
+	if err != nil {
+		t.Fatalf("read temp binary: %v", err)
+	}
+	if err := os.WriteFile(defaultBin, data, 0755); err != nil {
+		t.Fatalf("write default binary: %v", err)
+	}
+
+	installer.SetBinaryPath(defaultBin)
+	defer installer.SetBinaryPath("")
+
+	target := installer.GetTarget("codex")
+	if target == nil {
+		t.Fatal("expected codex target to be registered")
+	}
+
+	results := target.Install(installer.LocationGlobal, installer.InstallOptions{AutoAllow: true})
+	if len(results) == 0 {
+		t.Fatal("expected codex install to write at least one file")
+	}
+
+	codexFile := filepath.Join(homeDir, ".codex", "config.toml")
+	content, err := os.ReadFile(codexFile)
+	if err != nil {
+		t.Fatalf("read codex config: %v", err)
+	}
+	if !strings.Contains(string(content), "[mcp_servers.costaffective]") {
+		t.Fatalf("codex config missing MCP entry: %s", string(content))
+	}
+	if !strings.Contains(string(content), defaultBin) {
+		t.Fatalf("codex config should reference installed binary %q: %s", defaultBin, string(content))
+	}
+
+	found := false
+	for _, r := range CheckMCPConfigs() {
+		if strings.Contains(r.Name, "Codex") {
+			found = true
+			if r.Status != PASS {
+				t.Fatalf("Codex config should PASS after install, got %s: %s", r.Status, r.Detail)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected Codex config check result")
+	}
+}
+
 func TestDoctorRepository(t *testing.T) {
 	results := CheckRepository()
 	hasPass := false

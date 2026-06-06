@@ -36,7 +36,7 @@ func CheckBinary() BinaryCheckResult {
 	}
 
 	// Also check fallback
-	fallbackPath := filepath.Join(FallbackBinaryDir, "costaffective")
+	fallbackPath := filepath.Join(FallbackBinaryDir, binaryFilename())
 	if !r.Exists && Exists(fallbackPath) {
 		r.Path = fallbackPath
 		r.Exists = true
@@ -49,7 +49,7 @@ func CheckBinary() BinaryCheckResult {
 
 	// Try to find in PATH as last resort
 	if !r.Exists {
-		if path, err := exec.LookPath("costaffective"); err == nil {
+		if path, err := exec.LookPath(binaryFilename()); err == nil {
 			r.Path = path
 			r.Exists = true
 			r.Executable = true
@@ -160,7 +160,7 @@ func getBinaryVersion(binaryPath string) string {
 }
 
 func isInPATH() bool {
-	path, err := exec.LookPath("costaffective")
+	path, err := exec.LookPath(binaryFilename())
 	if err != nil {
 		return false
 	}
@@ -216,7 +216,7 @@ func GetDefaultBinaryDir() string {
 
 func GetBinaryCandidates() []string {
 	defaultPath := DefaultBinaryPath()
-	fallbackPath := filepath.Join(FallbackBinaryDir, "costaffective")
+	fallbackPath := filepath.Join(FallbackBinaryDir, binaryFilename())
 
 	seen := make(map[string]bool)
 	var candidates []string
@@ -227,7 +227,7 @@ func GetBinaryCandidates() []string {
 		}
 	}
 	if runtime.GOOS == "linux" {
-		if path, err := exec.LookPath("costaffective"); err == nil {
+		if path, err := exec.LookPath(binaryFilename()); err == nil {
 			if !seen[path] {
 				candidates = append(candidates, path)
 			}

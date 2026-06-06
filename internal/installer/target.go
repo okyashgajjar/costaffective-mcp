@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 type Location string
@@ -76,11 +77,18 @@ func BinaryPath() string {
 	if installedBinaryPath != "" {
 		return installedBinaryPath
 	}
-	return "costaffective"
+	return binaryFilename()
 }
 
 func DefaultBinaryPath() string {
-	return filepath.Join(HomeDir(), ".local", "bin", "costaffective")
+	return filepath.Join(HomeDir(), ".local", "bin", binaryFilename())
+}
+
+func binaryFilename() string {
+	if runtime.GOOS == "windows" {
+		return "costaffective.exe"
+	}
+	return "costaffective"
 }
 
 func GetMcpServerConfig() map[string]interface{} {
