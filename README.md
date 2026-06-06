@@ -4,7 +4,7 @@
 
 ### Local repository intelligence for Claude Code, Cursor, OpenCode, Codex CLI, and Antigravity
 
-**100% local · no cloud · no code uploads**
+**45.9% fewer tokens · 54.3% fewer exploration loops · 42.1% fewer tool interactions · 100% Local**
 
 [![Go 1.25+](https://img.shields.io/badge/Go-1.25%2B-00ADD8.svg)](#installation)
 [![Windows](https://img.shields.io/badge/Windows-supported-blue.svg)](#supported-platforms)
