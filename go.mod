@@ -1,4 +1,5 @@
-module costaffective
+// module costaffective
+module github.com/okyashgajjar/costaffective-mcp
 
 go 1.25.5
 
