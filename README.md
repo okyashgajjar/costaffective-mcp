@@ -74,7 +74,13 @@ On Windows:
 .\costaffective.exe install --all
 ```
 
-After you place `costaffective` on your `PATH`, you can run `costaffective install --all` from anywhere. The installer builds the `costaffective` binary, places it in a native executable location when possible, and writes the correct MCP config for each detected client.
+After you place `costaffective` on your `PATH`, you can run `costaffective install --all` from anywhere. The installer finds the currently running binary, copies it to `~/.local/bin/costaffective`, and writes the correct MCP config for each detected client. No source repository or `go.mod` is required.
+
+To rebuild the binary from source instead (requires the Go toolchain and the repository):
+
+```bash
+costaffective install --build
+```
 
 ### Shell installer
 
@@ -177,9 +183,10 @@ After that, close and reopen your terminal so the removed command is no longer c
 
 | Command | Description |
 |---------|-------------|
-| `costaffective install` | Interactive installation |
+| `costaffective install` | Interactive installation (uses running binary) |
 | `costaffective install --all` | Configure every detected client |
 | `costaffective install --target <name>` | Configure one client only |
+| `costaffective install --build` | Build binary from source before installing |
 | `costaffective install --repair` | Repair the binary and MCP configuration |
 | `costaffective doctor` | Validate installation and startup |
 | `costaffective uninstall` | Remove MCP configs from clients |
@@ -199,6 +206,16 @@ go build -o costaffective ./cmd/costaffective/
 
 # Check the install
 ./costaffective doctor
+```
+
+If you installed CostAffective via `go install` or a pre-built binary, you can run `install` from any directory:
+
+```bash
+# Use the currently running binary (no go.mod required)
+costaffective install --all
+
+# Or rebuild from source (requires Go toolchain and repository)
+costaffective install --build --all
 ```
 
 ## Doctor

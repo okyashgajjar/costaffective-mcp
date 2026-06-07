@@ -1,6 +1,6 @@
 # Context for AI Coding Agents
 
-> Last updated by big-pickle on 2026-06-05.
+> Last updated by big-pickle on 2026-06-07.
 
 ## Build & Test
 ```bash
@@ -12,9 +12,9 @@ go build -o costaffective ./cmd/mycli/
 ```
 
 ## Project Structure
-- `/home/mryg/CostAffective-CLI/CLI/` — Go module root
-- `cmd/mycli/main.go` — entry point
-- `cmd/install.go` — interactive install (build → detect → prompt → MCP config)
+- `/home/mryg/Research-Architectures/CLI/` — Go module root
+- `cmd/costaffective/main.go` — entry point
+- `cmd/install.go` — interactive install (detect → prompt → MCP config; `--build` to rebuild)
 - `cmd/uninstall.go` — remove MCP configs from configured clients
 - `cmd/doctor.go` — diagnostic checks (binary, PATH, MCP configs, startup, repository)
 - `cmd/serve.go` — MCP stdio server
@@ -83,6 +83,30 @@ When user asks "improve", "analyze", "review architecture", "suggest features":
 2. Send ONLY summary as context (never raw files)
 3. Apply hard output budget
 4. Compress if exceeded
+
+## Installer Design
+
+`internal/installer/` has three binary resolution modes:
+
+| Mode | Entry Point | When |
+|------|-------------|------|
+| **Use existing** | `EnsureBinary()` | Default: copies `os.Executable()` to `~/.local/bin/costaffective` |
+| **Build from source** | `InstallBinary()` | `--build` flag: requires Go toolchain + `go.mod` in parent tree |
+| **Repair** | `runRepair()` | `--repair`: maps to `EnsureBinary()` or `InstallBinary()` depending on `--build` |
+
+**`EnsureBinary()` resolution order:**
+1. Binary already at `DefaultBinaryPath()` and verifiable → return it
+2. `os.Executable()` returns a valid path → copy to `DefaultBinaryPath()`, return it
+3. `exec.LookPath("costaffective")` succeeds → copy to `DefaultBinaryPath()`, return it
+4. None found → return `ActionableError` suggesting `--build`
+
+**Key invariants:**
+- Default install does NOT require a Go module or `go.mod`
+- `--build` is opt-in (default `false`)
+- `EnsureBinary()` never calls `findGoModRoot()`
+- `CheckBinary()` includes `os.Executable()` as a candidate
+- Works from any directory (`/tmp`, outside repo, etc.)
+- Cross-platform: `os.Executable()` supported on Windows/macOS/Linux
 
 ## Invariants
 - `go build ./...` must compile with zero errors (GOPATH warning is expected)

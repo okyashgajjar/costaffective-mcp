@@ -20,12 +20,77 @@ type BinaryCheckResult struct {
 	IsBuildable bool
 }
 
+func copyBinary(src, dst string) error {
+	installDir := filepath.Dir(dst)
+	if err := os.MkdirAll(installDir, 0755); err != nil {
+		return fmt.Errorf("cannot create directory %s: %w", installDir, err)
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("cannot read %s: %w", src, err)
+	}
+	if err := os.WriteFile(dst, data, 0755); err != nil {
+		return fmt.Errorf("cannot write %s: %w", dst, err)
+	}
+	if err := VerifyBinary(dst); err != nil {
+		os.Remove(dst)
+		return err
+	}
+	return nil
+}
+
+func EnsureBinary() (string, error) {
+	// Already installed at default location
+	if Exists(DefaultBinaryPath()) {
+		if err := VerifyBinary(DefaultBinaryPath()); err == nil {
+			return DefaultBinaryPath(), nil
+		}
+	}
+
+	// Use the currently running executable
+	exe, err := os.Executable()
+	if err == nil {
+		exe, err = filepath.Abs(exe)
+		if err == nil && Exists(exe) {
+			if exe == DefaultBinaryPath() {
+				return exe, nil
+			}
+			if err := copyBinary(exe, DefaultBinaryPath()); err == nil {
+				return DefaultBinaryPath(), nil
+			}
+		}
+	}
+
+	// Look up in PATH as fallback
+	if path, err := exec.LookPath(binaryFilename()); err == nil {
+		absPath, err := filepath.Abs(path)
+		if err == nil {
+			if absPath != DefaultBinaryPath() {
+				if err := copyBinary(absPath, DefaultBinaryPath()); err == nil {
+					return DefaultBinaryPath(), nil
+				}
+			}
+			return absPath, nil
+		}
+	}
+
+	return "", ActionableError{
+		Message: "CostAffective binary not found.",
+		Action:  "Build from source: costaffective install --build\nOr download from: https://github.com/okyashgajjar/costaffective-mcp/releases",
+	}
+}
+
 func CheckBinary() BinaryCheckResult {
 	r := BinaryCheckResult{}
 
-	candidates := make([]string, 0, 4)
+	candidates := make([]string, 0, 6)
 	if installedBinaryPath != "" {
 		candidates = append(candidates, installedBinaryPath)
+	}
+	if exe, err := os.Executable(); err == nil {
+		if absExe, err := filepath.Abs(exe); err == nil {
+			candidates = append(candidates, absExe)
+		}
 	}
 	candidates = append(candidates, DefaultBinaryPath())
 

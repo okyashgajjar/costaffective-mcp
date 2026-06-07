@@ -30,27 +30,24 @@ func (inst *Installer) Run() error {
 }
 
 func (inst *Installer) runInstall() error {
-	// 1. Install (build + copy) binary to PATH
-	if inst.Build && !inst.DryRun {
-		fmt.Println("Building and installing CostAffective binary...")
+	// 1. Ensure binary is available at DefaultBinaryPath
+	if inst.DryRun {
+		fmt.Printf("  [DRY RUN] Would ensure binary at %s\n", Tildify(DefaultBinaryPath()))
+	} else if inst.Build {
+		fmt.Println("Building CostAffective binary from source...")
 		installedPath, err := InstallBinary()
+		if err != nil {
+			return fmt.Errorf("build failed: %w", err)
+		}
+		fmt.Printf("✓ Built and installed to %s\n", Tildify(installedPath))
+	} else {
+		fmt.Println("Finding CostAffective binary...")
+		installedPath, err := EnsureBinary()
 		if err != nil {
 			return fmt.Errorf("installation failed: %w", err)
 		}
-		fmt.Printf("✓ Installed to %s\n", Tildify(installedPath))
-	} else if inst.DryRun {
-		fmt.Printf("  [DRY RUN] Would build and install to %s\n", Tildify(DefaultBinaryPath()))
-	} else {
-		// Binary already installed; verify
-		result := CheckBinary()
-		if !result.Exists {
-			return ActionableError{
-				Message: "CostAffective binary not found.",
-				Action:  "Run: costaffective install",
-			}
-		}
-		SetBinaryPath(result.Path)
-		fmt.Printf("✓ Found binary at %s\n", Tildify(result.Path))
+		SetBinaryPath(installedPath)
+		fmt.Printf("✓ Using binary at %s\n", Tildify(installedPath))
 	}
 
 	// 2. Resolve targets
@@ -110,17 +107,27 @@ func (inst *Installer) runRepair() error {
 	fmt.Println("CostAffective Repair Mode")
 	fmt.Println()
 
-	// 1. Build and install binary
-	fmt.Println("1. Installing binary...")
-	installedPath, err := InstallBinary()
-	if err != nil {
-		return fmt.Errorf("binary installation failed: %w", err)
+	// 1. Install binary (build from source or use existing)
+	if inst.Build {
+		fmt.Println("1. Building binary from source...")
+		installedPath, err := InstallBinary()
+		if err != nil {
+			return fmt.Errorf("build failed: %w", err)
+		}
+		fmt.Printf("   ✓ %s\n", Tildify(installedPath))
+	} else {
+		fmt.Println("1. Ensuring binary...")
+		installedPath, err := EnsureBinary()
+		if err != nil {
+			return fmt.Errorf("binary not found: %w", err)
+		}
+		SetBinaryPath(installedPath)
+		fmt.Printf("   ✓ %s\n", Tildify(installedPath))
 	}
-	fmt.Printf("   ✓ %s\n", Tildify(installedPath))
 
 	// 2. Verify binary
 	fmt.Println("2. Verifying binary...")
-	if err := VerifyBinary(installedPath); err != nil {
+	if err := VerifyBinary(BinaryPath()); err != nil {
 		return fmt.Errorf("binary verification failed: %w", err)
 	}
 	fmt.Println("   ✓ Executable OK")

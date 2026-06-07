@@ -10,21 +10,24 @@ import (
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install CostAffective MCP server for AI coding clients",
-	Long: `Builds, installs, and configures CostAffective as an MCP server
-for your AI coding clients.
+	Long: `Configures CostAffective as an MCP server for your AI coding clients.
 
 The installer will:
-  1. Build the binary and install it to ~/.local/bin/costaffective
+  1. Find (or build) the binary and ensure it's at ~/.local/bin/costaffective
   2. Detect which AI coding clients are installed
   3. Prompt you to select targets for configuration
   4. Write the correct MCP config with absolute binary paths for each client
 
+By default, the installer uses the currently running binary.
+Use --build to compile from source instead.
+
 Supported clients: claude, cursor, opencode, codex, antigravity
 
 Examples:
-  costaffective install              # Interactive: build → detect → prompt → install
+  costaffective install              # Interactive: detect → prompt → install
   costaffective install --all        # Configure all supported clients (non-interactive)
   costaffective install --target claude  # Configure only Claude Code (non-interactive)
+  costaffective install --build      # Build binary from source before installing
   costaffective install --dry-run    # Show what would be done without making changes
   costaffective install --local      # Configure for current project only
   costaffective install --yes        # Non-interactive: auto-detect + accept defaults
@@ -68,7 +71,7 @@ Examples:
 func init() {
 	installCmd.Flags().Bool("all", false, "Install for all supported clients (non-interactive)")
 	installCmd.Flags().Bool("dry-run", false, "Show what would be done without making changes")
-	installCmd.Flags().Bool("build", true, "Build the costaffective binary before installing")
+	installCmd.Flags().Bool("build", false, "Build the CostAffective binary from source before installing")
 	installCmd.Flags().String("target", "", "Install only for a specific client (claude, cursor, opencode, codex, antigravity)")
 	installCmd.Flags().Bool("local", false, "Install for current project only (instead of global)")
 	installCmd.Flags().BoolP("yes", "y", false, "Non-interactive: auto-detect and accept defaults")
