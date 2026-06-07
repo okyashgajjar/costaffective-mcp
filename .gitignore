@@ -1,6 +1,6 @@
 # Local binaries
-costaffective
-costaffective.exe
+/costaffective
+/costaffective.exe
 *.test
 
 # Go coverage and build scratch
