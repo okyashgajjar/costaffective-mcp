@@ -1,14 +1,53 @@
 # Context for AI Coding Agents
 
-> Last updated by big-pickle on 2026-06-07.
+> Last updated by big-pickle on 2026-06-10.
+
+## CGO Requirement
+
+**CGO is mandatory.** The project depends on:
+- `github.com/mattn/go-sqlite3` — `//go:build cgo` constraint
+- `github.com/smacker/go-tree-sitter` — C bindings via cgo
+
+Builds with `CGO_ENABLED=0` will fail. Always ensure `CGO_ENABLED=1` (which is the default on most systems with a C compiler).
+
+On Ubuntu/Debian: `sudo apt install gcc libsqlite3-dev`
+On macOS: Xcode Command Line Tools (`xcode-select --install`)
+On Windows: MinGW-w64 (`mingw-w64`)
 
 ## Build & Test
 ```bash
-go build ./...   # Build all packages (expects "warning: GOPATH set to GOROOT" only)
-go test ./...    # Run all tests
+# Build all packages (CGO must be enabled)
+CGO_ENABLED=1 go build ./...
+
+# Run all tests
+CGO_ENABLED=1 go test ./...
 
 # Build binary
-go build -o costaffective ./cmd/mycli/
+CGO_ENABLED=1 go build -o costaffective ./cmd/costaffective/
+
+# Build with version injection (for releases)
+go build -ldflags="\
+  -X github.com/okyashgajjar/costaffective-mcp/cmd.version=v1.0.0 \
+  -X github.com/okyashgajjar/costaffective-mcp/cmd.commit=$(git rev-parse --short HEAD) \
+  -X github.com/okyashgajjar/costaffective-mcp/cmd.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  -o costaffective ./cmd/costaffective/
+```
+
+Default version (no ldflags): `dev`
+Injected version example: `v1.0.0` with commit hash and build date
+
+## Release Process
+
+1. Tag the release: `git tag -a v1.0.0 -m "v1.0.0"`
+2. Push the tag: `git push origin v1.0.0`
+3. CI runs tests + lint, then GoReleaser builds + publishes artifacts
+
+### Release artifact verification
+```bash
+./costaffective --version
+# Expected: costaffective v1.0.0
+#           commit: abc1234
+#           built:  2026-06-10T00:00:00Z
 ```
 
 ## Project Structure

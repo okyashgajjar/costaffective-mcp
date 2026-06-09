@@ -73,8 +73,8 @@ func TestBinaryExecutable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("binary should launch: %v", err)
 	}
-	if !strings.Contains(string(out), "1.0.0") {
-		t.Fatalf("version output = %q, want 1.0.0", string(out))
+	if !strings.Contains(string(out), "dev") {
+		t.Fatalf("version output = %q, want default dev version", string(out))
 	}
 }
 
