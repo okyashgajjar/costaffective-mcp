@@ -2,248 +2,198 @@
 
 # CostAffective
 
-### Local repository intelligence for Claude Code, Cursor, OpenCode, Codex CLI, and Antigravity
+### Local Repository Intelligence for AI Coding Assistants
 
 **45.9% fewer tokens · 54.3% fewer exploration loops · 42.1% fewer tool interactions · 100% Local**
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/okyashgajjar/costaffective-mcp/main/assets/costaffective-banner.png" alt="CostAffective Banner" width="600">
+</p>
+
+**Save tokens. Buy Coffee.**
+
+Works with Claude Code, Cursor, OpenCode, Codex CLI, Antigravity, and any MCP-compatible client.
 
 [![Go 1.25+](https://img.shields.io/badge/Go-1.25%2B-00ADD8.svg)](#installation)
 [![Windows](https://img.shields.io/badge/Windows-supported-blue.svg)](#supported-platforms)
 [![macOS](https://img.shields.io/badge/macOS-supported-blue.svg)](#supported-platforms)
 [![Linux](https://img.shields.io/badge/Linux-supported-blue.svg)](#supported-platforms)
-
 [![Claude Code](https://img.shields.io/badge/Claude_Code-supported-blueviolet.svg)](#supported-clients)
 [![Cursor](https://img.shields.io/badge/Cursor-supported-blueviolet.svg)](#supported-clients)
 [![OpenCode](https://img.shields.io/badge/OpenCode-supported-blueviolet.svg)](#supported-clients)
 [![Codex CLI](https://img.shields.io/badge/Codex_CLI-supported-blueviolet.svg)](#supported-clients)
 [![Antigravity](https://img.shields.io/badge/Antigravity-supported-blueviolet.svg)](#supported-clients)
 
+---
+
+⭐ **Star this repo** — it helps others find CostAffective and keeps us motivated!
+
 </div>
 
-## What It Is
+## What is CostAffective?
 
-CostAffective is a local MCP server that helps AI coding assistants understand large codebases without sending your code anywhere.
+CostAffective is a local MCP server that helps AI coding assistants understand large repositories without repeatedly exploring the same code.
 
-It provides:
+Instead of sending large amounts of code into the model context, CostAffective builds a local repository index and provides fast access to:
 
-- repository-aware retrieval
-- symbol and reference lookup
-- caller discovery
-- repository summaries
-- fast re-indexing
-- client installation and diagnostics
+* Symbol definitions
+* References
+* Call relationships
+* Repository summaries
+* Architecture information
+* Semantic code search
 
-No API key is required.
+**Everything runs locally.** No API keys. No cloud indexing. No code leaves your machine.
 
-## Installation
+---
 
-### Build and install with Go
+## Why CostAffective?
 
-Use the same binary name on every platform: `costaffective`.
+Modern coding assistants often spend a large portion of their context window rediscovering code that already exists.
 
-```bash
-go build -o costaffective ./cmd/costaffective/
+CostAffective reduces this overhead by providing repository-aware retrieval.
+
+### Benefits
+
+* **Faster** repository understanding
+* **Smaller** context usage
+* **Fewer** tool calls
+* **Better** navigation of large codebases
+* **Local-first** architecture — your code never leaves your machine
+* **Automatic** repository updates — no manual re-indexing
+
+---
+
+## Works With
+
+| Client                 | Supported |
+| ---------------------- | --------- |
+| Claude Code            | ✅        |
+| Cursor                 | ✅        |
+| OpenCode               | ✅        |
+| Codex CLI              | ✅        |
+| Antigravity            | ✅        |
+| MCP-Compatible Clients | ✅        |
+
+---
+
+## Example Questions
+
+CostAffective helps answer questions such as:
+
+```text
+Where is authentication implemented?
+
+Find all references to UserService.
+
+Which functions call processPayment()?
+
+How does caching work in this repository?
+
+Summarize the architecture of the billing module.
+
+Show me every place validateUser() is used.
 ```
 
-On Windows, build the `.exe` version:
+---
 
-```powershell
-go build -o costaffective.exe ./cmd/costaffective/
+## Repository Intelligence
+
+CostAffective combines multiple repository analysis techniques:
+
+* Tree-sitter AST parsing
+* Symbol indexing
+* Reference indexing
+* Call graph analysis
+* Architecture extraction
+* Repository summaries
+* Context compression
+* Incremental indexing
+
+This provides significantly better repository understanding than simple text search.
+
+---
+
+## Automatic Incremental Indexing
+
+CostAffective continuously watches your repository and updates its index automatically.
+
+When files change:
+
+```text
+File Change
+     ↓
+Watchdog
+     ↓
+Hash Comparison
+     ↓
+Re-index Changed Files Only
+     ↓
+Cache Invalidation
 ```
 
-Run it directly from the project directory:
+No full repository rebuild is required. Only modified files are reprocessed. This keeps indexing fast even on large repositories.
 
-```bash
-./costaffective --help
-```
+---
 
-On Windows:
+<details>
+<summary><strong>📦 MCP Tools</strong> — click to expand</summary>
 
-```powershell
-.\costaffective.exe --help
-```
+### search_code
 
-### Install the binary
+Semantic repository search powered by Tree-sitter.
 
-```bash
-./costaffective install --all
-```
+> **Example:** `Where is caching implemented?`
 
-On Windows:
+### find_symbol
 
-```powershell
-.\costaffective.exe install --all
-```
+Find where a symbol is defined.
 
-After you place `costaffective` on your `PATH`, you can run `costaffective install --all` from anywhere. The installer finds the currently running binary, copies it to `~/.local/bin/costaffective`, and writes the correct MCP config for each detected client. No source repository or `go.mod` is required.
+> **Example:** `Find UserService`
 
-To rebuild the binary from source instead (requires the Go toolchain and the repository):
+### find_references
 
-```bash
-costaffective install --build
-```
+Find every usage of a symbol.
 
-### Shell installer
+> **Example:** `Where is UserService used?`
 
-```bash
-bash install-mcp.sh
-```
+### find_callers
 
-## Uninstall
+Find which functions call another function.
 
-If you want to remove CostAffective, do it in two steps:
+> **Example:** `What calls processPayment()?`
 
-1. Remove the MCP client configs:
+### grep_code
 
-```bash
-costaffective uninstall --all
-```
+Regex and full-text fallback search.
 
-On Windows:
+### get_repository_summary
 
-```powershell
-.\costaffective.exe uninstall --all
-```
+Generate repository-level summaries. Includes languages, modules, architecture, and key symbols.
 
-2. Delete the binary from your system.
+### index_repository
 
-### Linux
+Refresh or rebuild repository indexes.
 
-If you installed it with the default layout:
+</details>
 
-```bash
-rm -f ~/.local/bin/costaffective
-```
-
-If `costaffective` is on your `PATH`, you can also remove whatever path the shell reports:
-
-```bash
-rm -f "$(command -v costaffective)"
-```
-
-### macOS
-
-If you installed it with the default layout:
-
-```bash
-rm -f ~/.local/bin/costaffective
-```
-
-If `costaffective` is on your `PATH`, remove the resolved binary path:
-
-```bash
-rm -f "$(command -v costaffective)"
-```
-
-### Windows
-
-If you installed it with the default layout:
-
-```powershell
-Remove-Item "$env:USERPROFILE\.local\bin\costaffective.exe" -Force
-```
-
-If `costaffective.exe` is on your `PATH`, remove the resolved binary path:
-
-```powershell
-Remove-Item (Get-Command costaffective).Source -Force
-```
-
-After that, close and reopen your terminal so the removed command is no longer cached.
-
-## Supported Platforms
-
-- Windows
-- macOS
-- Linux
-
-## Supported Clients
-
-| Client | Config Surface |
-|--------|----------------|
-| Claude Code | `~/.claude.json`, `.mcp.json`, or settings files |
-| Cursor | `~/.cursor/mcp.json` or workspace MCP settings |
-| OpenCode | `opencode.json` |
-| Codex CLI | `~/.codex/config.toml` |
-| Antigravity | `~/.gemini/config/mcp_config.json` |
-| MCP-compatible clients | stdio transport |
-
-## MCP Tools
-
-| Tool | What it does |
-|------|--------------|
-| `search_code` | Semantic code search backed by tree-sitter parsing |
-| `find_symbol` | Find where a symbol is defined |
-| `find_references` | Find every use of a symbol |
-| `find_callers` | Find functions that call a target function |
-| `grep_code` | Regex and text search fallback |
-| `get_repository_summary` | Summarize modules, files, languages, and architecture |
-| `index_repository` | Rebuild or refresh the repository index |
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `costaffective install` | Interactive installation (uses running binary) |
-| `costaffective install --all` | Configure every detected client |
-| `costaffective install --target <name>` | Configure one client only |
-| `costaffective install --build` | Build binary from source before installing |
-| `costaffective install --repair` | Repair the binary and MCP configuration |
-| `costaffective doctor` | Validate installation and startup |
-| `costaffective uninstall` | Remove MCP configs from clients |
-| `costaffective serve` | Start the MCP stdio server |
-
-## Quick Start
-
-```bash
-# Build the binary
-go build -o costaffective ./cmd/costaffective/
-
-# Verify it starts
-./costaffective --version
-
-# Connect the supported clients
-./costaffective install --all
-
-# Check the install
-./costaffective doctor
-```
-
-If you installed CostAffective via `go install` or a pre-built binary, you can run `install` from any directory:
-
-```bash
-# Use the currently running binary (no go.mod required)
-costaffective install --all
-
-# Or rebuild from source (requires Go toolchain and repository)
-costaffective install --build --all
-```
-
-## Doctor
-
-`costaffective doctor` checks:
-
-- binary existence and permissions
-- PATH visibility
-- MCP configuration for each client
-- server startup
-- repository state
-
-## Repository State
-
-CostAffective keeps track of the repository index and the working tree:
-
-- `unindexed` means no usable index exists yet
-- `stale` means files changed after indexing
-- `ready` means the repository is aligned with the index
-
-Agent mode can auto-index when needed; other modes can prompt first.
-
-## Architecture
+<details>
+<summary><strong>🏗️ Architecture</strong> — click to expand</summary>
 
 ```text
 AI Client (MCP Host)
     │
     ├── stdio transport ──► costaffective serve (MCP Server)
+    │                           │
+    │                           ├── Session Manager
+    │                           ├── Repository State Manager
+    │                           ├── Watchdog
+    │                           ├── Shared Indexer
+    │                           │
+    │                           ├── Tree-sitter Parser
+    │                           ├── Symbol Index
+    │                           ├── Reference Index
+    │                           ├── Call Graph Index
     │                           │
     │                           ├── search_code ───────────► tree-sitter AST match
     │                           ├── find_symbol ───────────► SymbolDB lookup
@@ -254,46 +204,121 @@ AI Client (MCP Host)
     │                           └── index_repository ──────► SharedIndexer
 ```
 
-## Why CostAffective
+</details>
 
-Modern coding agents waste context by repeatedly rediscovering the same code paths.
+<details>
+<summary><strong>⚙️ Commands</strong> — click to expand</summary>
 
-CostAffective keeps the repository index local and gives the model smaller, more relevant context so it can spend tokens on reasoning instead of discovery.
+| Command                        | Description                    |
+| ------------------------------ | ------------------------------ |
+| `costaffective install`        | Interactive installation       |
+| `costaffective install --all`  | Configure all detected clients |
+| `costaffective install --target` | Configure a specific client  |
+| `costaffective install --build` | Build from source before installing |
+| `costaffective install --repair` | Repair installation          |
+| `costaffective doctor`         | Validate installation          |
+| `costaffective serve`          | Start MCP server               |
+| `costaffective uninstall`      | Remove MCP configuration       |
 
-## Benchmark Highlights
+</details>
+
+<details>
+<summary><strong>💻 Installation</strong> — click to expand</summary>
+
+### Build
+
+```bash
+go build -o costaffective ./cmd/costaffective/
+```
+
+On Windows:
+
+```powershell
+go build -o costaffective.exe ./cmd/costaffective/
+```
+
+Verify:
+
+```bash
+./costaffective --version
+```
+
+Install for supported clients:
+
+```bash
+./costaffective install --all
+```
+
+Validate installation:
+
+```bash
+./costaffective doctor
+```
+
+### From any directory
+
+After `costaffective` is on your `PATH`:
+
+```bash
+costaffective install --all
+```
+
+### Shell installer
+
+```bash
+bash install-mcp.sh
+```
+
+</details>
+
+<details>
+<summary><strong>🗑️ Uninstall</strong> — click to expand</summary>
+
+1. Remove MCP client configs:
+
+```bash
+costaffective uninstall --all
+```
+
+2. Delete the binary:
+
+**Linux / macOS:**
+
+```bash
+rm -f "$(command -v costaffective)"
+```
+
+**Windows:**
+
+```powershell
+Remove-Item (Get-Command costaffective).Source -Force
+```
+
+</details>
+
+<details>
+<summary><strong>📊 Benchmarks</strong> — click to expand</summary>
 
 ### Continue OSS Repository
 
-| Metric | Value |
-|--------|-------|
-| Files | 3,203 |
-| Source Files | 1,985 |
+| Metric            | CostAffective | Alternative   |
+| ----------------- | ------------- | ------------- |
+| Tokens            | 4.7M          | 8.7M          |
+| API Calls         | 89            | 134           |
+| Exploration Calls | 43            | 94            |
 
-### CostAffective
+### Improvement
 
-| Metric | Value |
-|--------|-------|
-| Tokens | 4.7M |
-| API Calls | 89 |
-| Exploration Calls | 43 |
+| Metric            | Result        |
+| ----------------- | ------------- |
+| Token Usage       | **45.9%** lower |
+| Exploration Loops | **54.3%** lower |
+| Tool Interactions | **42.1%** lower |
 
-### Alternative Semantic Code Intelligence Benchmark
+</details>
 
-| Metric | Value |
-|--------|-------|
-| Tokens | 8.7M |
-| API Calls | 134 |
-| Exploration Calls | 94 |
-
-### Observed Results
-
-| Metric | Improvement |
-|--------|-------------|
-| Token Usage | 45.9% lower |
-| Exploration Loops | 54.3% lower |
-| Tool Interactions | 42.1% lower |
-
-## Development
+<details>
+<summary><strong>🛠️ Development</strong> — click to expand</summary>
 
 ```bash
 git clone https://github.com/okyashgajjar/costaffective-mcp.git
@@ -302,6 +327,66 @@ go build ./...
 go test ./...
 ```
 
+</details>
+
+<details>
+<summary><strong>📋 Supported Clients & Config</strong> — click to expand</summary>
+
+| Client       | Config Surface                                      |
+| ------------ | --------------------------------------------------- |
+| Claude Code  | `~/.claude.json`, `.mcp.json`, or settings files    |
+| Cursor       | `~/.cursor/mcp.json` or workspace MCP settings      |
+| OpenCode     | `opencode.json`                                     |
+| Codex CLI    | `~/.codex/config.toml`                              |
+| Antigravity  | `~/.gemini/config/mcp_config.json`                  |
+| MCP-compatible | stdio transport                                   |
+
+</details>
+
+---
+
+## Repository State
+
+CostAffective tracks three states for your repository index:
+
+| State        | Meaning                                        |
+| ------------ | ---------------------------------------------- |
+| `unindexed`  | No usable index exists yet                     |
+| `stale`      | Files changed after the last index             |
+| `ready`      | Index is in sync with the working tree         |
+
+Agent mode can auto-index when needed; interactive modes prompt first.
+
+---
+
+## Doctor
+
+`costaffective doctor` checks:
+
+- Binary existence and permissions
+- PATH visibility
+- MCP configuration for each client
+- Server startup
+- Repository state
+
+---
+
+## Supported Platforms
+
+- Windows
+- macOS
+- Linux
+
+---
+
 ## License
 
 MIT
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ for developers who believe AI coding tools should be <strong>fast, local, and open</strong>.</sub>
+  <br>
+  <sub>**Save tokens. Buy Coffee.** ☕</sub>
+</div>
