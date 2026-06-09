@@ -4,7 +4,7 @@
   <img
     src="https://raw.githubusercontent.com/okyashgajjar/costaffective-mcp/main/logo(1).png"
     alt="CostAffective Logo"
-    width="400"
+    width="500"
   />
 </p>
 
