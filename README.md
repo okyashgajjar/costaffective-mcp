@@ -1,5 +1,8 @@
 <div align="center">
 
+**CostAffective - MCP**
+
+
 <p align="center">
   <img
     src="https://raw.githubusercontent.com/okyashgajjar/costaffective-mcp/main/logo(1).png"
