@@ -348,10 +348,10 @@ Agent mode can auto-index when needed; interactive modes prompt first.
 
 ## Supported Platforms
 
-- Windows
-- Linux
+- Linux amd64
+- Windows amd64
 
-macOS release binaries are temporarily unavailable for v1.0.1 and will return in a future release. macOS users can still build from source with a local Go and C toolchain.
+Linux arm64 and macOS release binaries are temporarily unavailable for v1.0.1 and will return in a future release. Users on those platforms can still build from source with a local Go and C toolchain.
 
 ---
 

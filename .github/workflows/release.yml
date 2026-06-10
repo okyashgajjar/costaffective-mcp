@@ -29,7 +29,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             gcc \
             libsqlite3-dev \
-            gcc-aarch64-linux-gnu \
             gcc-mingw-w64-x86-64
 
       - name: Run GoReleaser
