@@ -22,6 +22,12 @@
 
 ---
 
+**INSTALLATION** [ Linux & Windows ]
+```
+curl -fsSL https://raw.githubusercontent.com/okyashgajjar/costaffective-mcp/main/install.sh | bash
+```
+For other dist Scroll Down For More Installation Info.
+
 ⭐ **Star this repo** — it helps others find CostAffective and keeps us motivated!
 
 </div>
