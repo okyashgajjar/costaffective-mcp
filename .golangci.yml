@@ -1,20 +1,28 @@
-run:
-  concurrency: 4
-  timeout: 5m
-  issues-exit-code: 1
+version: "2"
+
+formatters:
+  enable:
+    - gofmt
 
 linters:
   enable:
-    - gofmt
     - govet
     - staticcheck
-    - gosimple
     - errcheck
     - ineffassign
     - unused
+  exclusions:
+    rules:
+      # Exclude Close and Rollback errcheck issues globally
+      - linters:
+          - errcheck
+        text: "Close|Rollback"
+      # Exclude os.Setenv and os.Chdir in tests
+      - path: _test\.go
+        linters:
+          - errcheck
+        text: "Setenv|Chdir"
 
 issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
+  max-issues-per-linter: 0
+  max-same-issues: 0
