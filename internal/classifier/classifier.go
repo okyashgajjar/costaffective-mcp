@@ -638,7 +638,7 @@ func hasSymbolPattern(w string) bool {
 	}
 	allUpper := len(w) >= 2 && len(w) <= 8
 	for _, ch := range w {
-		if !(ch >= 'A' && ch <= 'Z') {
+		if ch < 'A' || ch > 'Z' {
 			allUpper = false
 			break
 		}

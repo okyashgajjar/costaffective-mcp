@@ -15,9 +15,9 @@ const (
 )
 
 type DetectionResult struct {
-	Installed          bool
-	AlreadyConfigured  bool
-	ConfigPath         string
+	Installed         bool
+	AlreadyConfigured bool
+	ConfigPath        string
 }
 
 type WriteResult struct {

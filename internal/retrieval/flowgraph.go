@@ -172,8 +172,7 @@ func (r *FlowGraphRetriever) traceFlow(seeds []flowNode) flowGraph {
 	visited := make(map[string]bool)
 	var nodes []flowNode
 
-	var addUnique func(node flowNode) bool
-	addUnique = func(node flowNode) bool {
+	var addUnique func(node flowNode) bool = func(node flowNode) bool {
 		key := fmt.Sprintf("%s:%s:%s", node.Kind, node.Name, node.File)
 		if visited[key] {
 			return false
@@ -244,7 +243,7 @@ func formatFlowGraph(g flowGraph, query string) string {
 		return "No flow paths found."
 	}
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Flow graph for: %s\n\n", query))
+	fmt.Fprintf(&b, "Flow graph for: %s\n\n", query)
 
 	var seeds, calls, calledBy, imports []flowNode
 	for _, n := range g.Nodes {
@@ -263,7 +262,7 @@ func formatFlowGraph(g flowGraph, query string) string {
 	if len(seeds) > 0 {
 		b.WriteString("Starting points:\n")
 		for _, s := range seeds {
-			b.WriteString(fmt.Sprintf("  %s %s (%s)\n", s.Kind, s.Name, s.File))
+			fmt.Fprintf(&b, "  %s %s (%s)\n", s.Kind, s.Name, s.File)
 		}
 		b.WriteString("\n")
 	}
@@ -271,8 +270,8 @@ func formatFlowGraph(g flowGraph, query string) string {
 	if len(calls) > 0 {
 		b.WriteString("Calls:\n")
 		for _, c := range calls {
-			b.WriteString(fmt.Sprintf("  %s → %s (line %d, %s)\n", c.Name, "", c.Line, c.File))
-			b.WriteString(fmt.Sprintf("    at %s line %d\n", c.File, c.Line))
+			fmt.Fprintf(&b, "  %s → %s (line %d, %s)\n", c.Name, "", c.Line, c.File)
+			fmt.Fprintf(&b, "    at %s line %d\n", c.File, c.Line)
 		}
 		b.WriteString("\n")
 	}
@@ -280,7 +279,7 @@ func formatFlowGraph(g flowGraph, query string) string {
 	if len(calledBy) > 0 {
 		b.WriteString("Called by:\n")
 		for _, c := range calledBy {
-			b.WriteString(fmt.Sprintf("  %s ← %s (line %d, %s)\n", c.Name, "", c.Line, c.File))
+			fmt.Fprintf(&b, "  %s ← %s (line %d, %s)\n", c.Name, "", c.Line, c.File)
 		}
 		b.WriteString("\n")
 	}
@@ -288,7 +287,7 @@ func formatFlowGraph(g flowGraph, query string) string {
 	if len(imports) > 0 {
 		b.WriteString("Imports:\n")
 		for _, imp := range imports {
-			b.WriteString(fmt.Sprintf("  %s\n", imp.Name))
+			fmt.Fprintf(&b, "  %s\n", imp.Name)
 		}
 	}
 

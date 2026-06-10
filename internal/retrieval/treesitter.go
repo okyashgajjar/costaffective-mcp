@@ -258,12 +258,12 @@ func buildSymbolSnippet(m treesitter.SymbolMatch) string {
 	name := m.Symbol.Name
 	file := m.Symbol.File
 
-	b.WriteString(fmt.Sprintf("[%s] %s (%s:%d)\n", kind, name, file, m.Symbol.StartLine))
+	fmt.Fprintf(&b, "[%s] %s (%s:%d)\n", kind, name, file, m.Symbol.StartLine)
 	if m.Symbol.Signature != "" {
-		b.WriteString(fmt.Sprintf("  %s\n", m.Symbol.Signature))
+		fmt.Fprintf(&b, "  %s\n", m.Symbol.Signature)
 	}
 	if m.Reason != "" {
-		b.WriteString(fmt.Sprintf("  reason: %s\n", m.Reason))
+		fmt.Fprintf(&b, "  reason: %s\n", m.Reason)
 	}
 
 	return b.String()
@@ -279,4 +279,3 @@ func skipDir(path string) bool {
 	}
 	return false
 }
-

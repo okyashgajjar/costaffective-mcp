@@ -37,7 +37,7 @@ func opencodeConfigPath(loc installer.Location) string {
 type OpencodeTarget struct{}
 
 func (t *OpencodeTarget) ID() string          { return "opencode" }
-func (t *OpencodeTarget) DisplayName() string  { return "OpenCode" }
+func (t *OpencodeTarget) DisplayName() string { return "OpenCode" }
 
 func (t *OpencodeTarget) SupportsLocation(loc installer.Location) bool {
 	return true

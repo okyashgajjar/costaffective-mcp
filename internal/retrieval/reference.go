@@ -60,7 +60,6 @@ func (r *ReferenceRetriever) InitializeWithIndexer(repo *repository.RepositoryIn
 	r.metrics = RetrievalMetrics{}
 }
 
-
 func (r *ReferenceRetriever) Retrieve(ctx context.Context, query string) ([]RetrievalResult, error) {
 	start := time.Now()
 
@@ -78,8 +77,8 @@ func (r *ReferenceRetriever) Retrieve(ctx context.Context, query string) ([]Retr
 
 	if len(symbolMatches) == 0 && len(refs) == 0 {
 		r.metrics = RetrievalMetrics{
-			LatencyMs:   time.Since(start).Milliseconds(),
-			Confidence:  0,
+			LatencyMs:  time.Since(start).Milliseconds(),
+			Confidence: 0,
 		}
 		return nil, nil
 	}

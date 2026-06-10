@@ -22,9 +22,9 @@ type Session struct {
 
 // Message represents a chat message in a session.
 type Message struct {
-	Role      string    // e.g., "system", "user", "assistant"
-	Content   string
-	Timestamp time.Time
+	Role       string // e.g., "system", "user", "assistant"
+	Content    string
+	Timestamp  time.Time
 	TokenUsage *TokenUsage
 }
 

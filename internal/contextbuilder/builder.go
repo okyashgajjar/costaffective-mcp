@@ -231,29 +231,29 @@ func (b *Builder) Build(results []retrieval.RetrievalResult) (string, ContextMet
 			if result.Snippet == "" {
 				context.WriteString(result.File + "\n")
 			} else {
-				context.WriteString(fmt.Sprintf("=== %s (confidence: %.2f) ===\n%s\n\n", result.File, result.Score, result.Snippet))
+				fmt.Fprintf(&context, "=== %s (confidence: %.2f) ===\n%s\n\n", result.File, result.Score, result.Snippet)
 			}
 		case Level2:
 			expanded := expandSnippet(result.Snippet)
-			context.WriteString(fmt.Sprintf("=== %s (confidence: %.2f) ===\n%s\n\n", result.File, result.Score, expanded))
+			fmt.Fprintf(&context, "=== %s (confidence: %.2f) ===\n%s\n\n", result.File, result.Score, expanded)
 		case Level3:
 			content := result.Snippet
 			if content == "" {
 				content = loadFullFile(result.File)
 			}
-			context.WriteString(fmt.Sprintf("=== %s ===\n%s\n\n", result.File, content))
+			fmt.Fprintf(&context, "=== %s ===\n%s\n\n", result.File, content)
 		case Level4:
 			if result.Snippet != "" {
-				context.WriteString(fmt.Sprintf("%s\n", result.Snippet))
+				fmt.Fprintf(&context, "%s\n", result.Snippet)
 			}
 		case Level5:
 			if result.Snippet != "" {
-				context.WriteString(fmt.Sprintf("%s\n", result.Snippet))
+				fmt.Fprintf(&context, "%s\n", result.Snippet)
 			}
 
 		case Level6:
 			if result.Snippet != "" {
-				context.WriteString(fmt.Sprintf("%s\n", result.Snippet))
+				fmt.Fprintf(&context, "%s\n", result.Snippet)
 			}
 
 		case Level7:
@@ -261,7 +261,7 @@ func (b *Builder) Build(results []retrieval.RetrievalResult) (string, ContextMet
 			if body != "" {
 				context.WriteString(body)
 			} else if result.Snippet != "" {
-				context.WriteString(fmt.Sprintf("=== %s (confidence: %.2f) ===\n%s\n\n", result.File, result.Score, result.Snippet))
+				fmt.Fprintf(&context, "=== %s (confidence: %.2f) ===\n%s\n\n", result.File, result.Score, result.Snippet)
 			}
 		}
 	}
@@ -460,9 +460,9 @@ func extractFunctionBody(result retrieval.RetrievalResult) string {
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("=== %s:%d-%d (confidence: %.2f) ===\n", rel, result.LineFrom, endLine, result.Score))
+	fmt.Fprintf(&b, "=== %s:%d-%d (confidence: %.2f) ===\n", rel, result.LineFrom, endLine, result.Score)
 	for i, line := range extracted {
-		b.WriteString(fmt.Sprintf("%d: %s\n", result.LineFrom+i, line))
+		fmt.Fprintf(&b, "%d: %s\n", result.LineFrom+i, line)
 	}
 	b.WriteString("\n")
 	return b.String()

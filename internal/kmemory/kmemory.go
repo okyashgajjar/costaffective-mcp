@@ -259,7 +259,7 @@ func (km *KnowledgeMemory) LoadFromFile(path string) error {
 func tokenizeKey(key string) []string {
 	key = strings.ToLower(key)
 	words := strings.FieldsFunc(key, func(r rune) bool {
-		return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9')
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
 	})
 
 	var tokens []string

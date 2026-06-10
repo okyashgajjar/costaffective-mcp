@@ -16,8 +16,8 @@ import (
 type ToolResult struct {
 	Query      string
 	Tool       string
-	Files      []string  // discovered file paths
-	Snippets   []string  // short text snippets from the files
+	Files      []string // discovered file paths
+	Snippets   []string // short text snippets from the files
 	Confidence float64
 	CreatedAt  time.Time
 	TTL        time.Duration

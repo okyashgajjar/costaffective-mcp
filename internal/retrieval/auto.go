@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/okyashgajjar/costaffective-mcp/internal/classifier"
-	"github.com/okyashgajjar/costaffective-mcp/internal/repository"
 	"github.com/okyashgajjar/costaffective-mcp/internal/kmemory"
+	"github.com/okyashgajjar/costaffective-mcp/internal/repository"
 	"github.com/okyashgajjar/costaffective-mcp/internal/treesitter"
 )
 
@@ -93,22 +93,22 @@ func (r *AutoRetriever) Retrieve(ctx context.Context, query string) ([]Retrieval
 	r.lastClass = cl
 
 	route := map[classifier.QueryClass]string{
-		classifier.SymbolQuery:     "treesitter",
-		classifier.TextQuery:       "fts",
-		classifier.RepositoryQuery: "grep",
-		classifier.ReferenceQuery:  "reference",
-		classifier.CallQuery:       "callgraph",
+		classifier.SymbolQuery:       "treesitter",
+		classifier.TextQuery:         "fts",
+		classifier.RepositoryQuery:   "grep",
+		classifier.ReferenceQuery:    "reference",
+		classifier.CallQuery:         "callgraph",
 		classifier.ArchitectureQuery: "architecture",
-		classifier.FlowQuery:       "flowgraph",
+		classifier.FlowQuery:         "flowgraph",
 	}
 	fallbackOrder := map[classifier.QueryClass][]string{
-		classifier.SymbolQuery:     {"fts", "grep"},
-		classifier.TextQuery:       {"grep", "treesitter"},
-		classifier.RepositoryQuery: {"fts", "treesitter"},
-		classifier.ReferenceQuery:  {"treesitter", "grep"},
-		classifier.CallQuery:       {"treesitter", "reference"},
+		classifier.SymbolQuery:       {"fts", "grep"},
+		classifier.TextQuery:         {"grep", "treesitter"},
+		classifier.RepositoryQuery:   {"fts", "treesitter"},
+		classifier.ReferenceQuery:    {"treesitter", "grep"},
+		classifier.CallQuery:         {"treesitter", "reference"},
 		classifier.ArchitectureQuery: {"grep", "fts"},
-		classifier.FlowQuery:       {"callgraph", "treesitter"},
+		classifier.FlowQuery:         {"callgraph", "treesitter"},
 	}
 
 	primaryName := route[cl.Class]

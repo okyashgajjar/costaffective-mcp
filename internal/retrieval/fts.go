@@ -226,14 +226,14 @@ func (r *FTSRetriever) Retrieve(ctx context.Context, query string) ([]RetrievalR
 	}
 
 	r.metrics = RetrievalMetrics{
-		FilesScanned:     r.metrics.FilesScanned,
-		FilesLoaded:      len(results),
-		Tokens:           totalTokens(results),
-		LatencyMs:        time.Since(start).Milliseconds(),
-		MatchedFiles:     len(results),
-		MatchedSnippets:  len(results),
-		MatchCount:       totalMatches,
-		Confidence:       confidence,
+		FilesScanned:    r.metrics.FilesScanned,
+		FilesLoaded:     len(results),
+		Tokens:          totalTokens(results),
+		LatencyMs:       time.Since(start).Milliseconds(),
+		MatchedFiles:    len(results),
+		MatchedSnippets: len(results),
+		MatchCount:      totalMatches,
+		Confidence:      confidence,
 	}
 
 	return results, nil

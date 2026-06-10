@@ -28,7 +28,7 @@ func antigravityConfigPath() string {
 type AntigravityTarget struct{}
 
 func (t *AntigravityTarget) ID() string          { return "antigravity" }
-func (t *AntigravityTarget) DisplayName() string  { return "Antigravity / Gemini" }
+func (t *AntigravityTarget) DisplayName() string { return "Antigravity / Gemini" }
 
 func (t *AntigravityTarget) SupportsLocation(loc installer.Location) bool {
 	return loc == installer.LocationGlobal

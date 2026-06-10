@@ -9,9 +9,9 @@ import (
 )
 
 type CompressedContext struct {
-	Context   string
-	Tokens    int
-	Passed    bool
+	Context string
+	Tokens  int
+	Passed  bool
 }
 
 func CompressForAnswerType(results []RetrievalResult, answerType answertype.Classification, budget int) CompressedContext {
@@ -40,9 +40,9 @@ func compressYesNo(results []RetrievalResult) CompressedContext {
 	for _, r := range results {
 		rel := shortenPath(r.File)
 		if r.LineFrom > 0 {
-			b.WriteString(fmt.Sprintf("%s:%d\n", rel, r.LineFrom))
+			fmt.Fprintf(&b, "%s:%d\n", rel, r.LineFrom)
 		} else {
-			b.WriteString(fmt.Sprintf("%s\n", rel))
+			fmt.Fprintf(&b, "%s\n", rel)
 		}
 		if r.Snippet != "" {
 			lines := strings.Split(r.Snippet, "\n")
@@ -51,7 +51,7 @@ func compressYesNo(results []RetrievalResult) CompressedContext {
 				lines = lines[:maxLines]
 			}
 			for _, l := range lines {
-				b.WriteString(fmt.Sprintf("  %s\n", l))
+				fmt.Fprintf(&b, "  %s\n", l)
 			}
 		}
 	}
@@ -75,13 +75,13 @@ func compressLocation(results []RetrievalResult) CompressedContext {
 		}
 		rel := shortenPath(r.File)
 		if r.LineFrom > 0 {
-			b.WriteString(fmt.Sprintf("%s:%d", rel, r.LineFrom))
+			fmt.Fprintf(&b, "%s:%d", rel, r.LineFrom)
 			if r.LineTo > r.LineFrom {
-				b.WriteString(fmt.Sprintf("-%d", r.LineTo))
+				fmt.Fprintf(&b, "-%d", r.LineTo)
 			}
 			b.WriteString("\n")
 		} else {
-			b.WriteString(fmt.Sprintf("%s\n", rel))
+			fmt.Fprintf(&b, "%s\n", rel)
 		}
 	}
 	ctx := b.String()
@@ -107,14 +107,14 @@ func compressCaller(results []RetrievalResult) CompressedContext {
 				trimmed := strings.TrimSpace(line)
 				if trimmed != "" && !seen[trimmed] {
 					seen[trimmed] = true
-					b.WriteString(fmt.Sprintf("  %s\n", trimmed))
+					fmt.Fprintf(&b, "  %s\n", trimmed)
 				}
 			}
 		} else {
 			rel := shortenPath(r.File)
 			if !seen[rel] {
 				seen[rel] = true
-				b.WriteString(fmt.Sprintf("  %s\n", rel))
+				fmt.Fprintf(&b, "  %s\n", rel)
 			}
 		}
 	}
@@ -141,14 +141,14 @@ func compressReference(results []RetrievalResult) CompressedContext {
 				trimmed := strings.TrimSpace(line)
 				if trimmed != "" && !seen[trimmed] {
 					seen[trimmed] = true
-					b.WriteString(fmt.Sprintf("  %s\n", trimmed))
+					fmt.Fprintf(&b, "  %s\n", trimmed)
 				}
 			}
 		} else {
 			rel := shortenPath(r.File)
 			if !seen[rel] {
 				seen[rel] = true
-				b.WriteString(fmt.Sprintf("  %s\n", rel))
+				fmt.Fprintf(&b, "  %s\n", rel)
 			}
 		}
 	}
@@ -173,13 +173,13 @@ func compressOverview(results []RetrievalResult, budget int) CompressedContext {
 			break
 		}
 		rel := shortenPath(r.File)
-		b.WriteString(fmt.Sprintf("File: %s\n", rel))
+		fmt.Fprintf(&b, "File: %s\n", rel)
 		if r.Snippet != "" {
 			snippet := cleanSnippet(r.Snippet)
 			if len(snippet) > 500 {
 				snippet = snippet[:500] + "..."
 			}
-			b.WriteString(fmt.Sprintf("%s\n\n", snippet))
+			fmt.Fprintf(&b, "%s\n\n", snippet)
 		}
 		totalTokens = len(b.String()) / 4
 		if totalTokens >= budget {
@@ -211,9 +211,9 @@ func compressDefault(results []RetrievalResult, budget int) CompressedContext {
 			if len(snippet) > 1000 {
 				snippet = snippet[:1000] + "..."
 			}
-			b.WriteString(fmt.Sprintf("=== %s ===\n%s\n\n", rel, snippet))
+			fmt.Fprintf(&b, "=== %s ===\n%s\n\n", rel, snippet)
 		} else {
-			b.WriteString(fmt.Sprintf("=== %s ===\n", rel))
+			fmt.Fprintf(&b, "=== %s ===\n", rel)
 		}
 		totalTokens = len(b.String()) / 4
 		if totalTokens >= budget {

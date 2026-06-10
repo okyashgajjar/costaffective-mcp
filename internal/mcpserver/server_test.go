@@ -16,7 +16,7 @@ func TestNewServer(t *testing.T) {
 
 func TestGetOrCreateRepoSession(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	// mock a .git folder to make it a valid repo
 	os.MkdirAll(filepath.Join(tempDir, ".git"), 0755)
 

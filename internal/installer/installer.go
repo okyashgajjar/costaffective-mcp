@@ -144,13 +144,14 @@ func (inst *Installer) runRepair() error {
 		if d.AlreadyConfigured {
 			results := t.Install(LocationGlobal, InstallOptions{AutoAllow: true})
 			for _, r := range results {
-				if r.Action == "updated" {
+				switch r.Action {
+				case "updated":
 					fmt.Printf("   ✓ %s: repaired %s\n", t.DisplayName(), Tildify(r.Path))
 					fixed++
-				} else if r.Action == "unchanged" {
+				case "unchanged":
 					fmt.Printf("   ✓ %s: OK (%s)\n", t.DisplayName(), Tildify(r.Path))
 					skipped++
-				} else {
+				default:
 					fmt.Printf("   ✓ %s: %s %s\n", t.DisplayName(), r.Action, Tildify(r.Path))
 					fixed++
 				}

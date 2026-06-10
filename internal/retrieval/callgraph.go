@@ -62,7 +62,6 @@ func (r *CallGraphRetriever) InitializeWithIndexer(repo *repository.RepositoryIn
 	r.metrics = RetrievalMetrics{}
 }
 
-
 func (r *CallGraphRetriever) Retrieve(ctx context.Context, query string) ([]RetrievalResult, error) {
 	start := time.Now()
 

@@ -14,22 +14,22 @@ import (
 )
 
 type RetrievalBenchmark struct {
-	ID           string    `json:"id"`
-	TaskID       string    `json:"task_id"`
-	Repository   string    `json:"repository"`
-	Retriever    string    `json:"retriever"`
-	Query        string    `json:"query"`
-	FilesScanned int       `json:"files_scanned"`
-	FilesLoaded  int       `json:"files_loaded"`
-	TokensContext int      `json:"tokens_context"`
-	TokensInput  int       `json:"tokens_input"`
-	TokensOutput int       `json:"tokens_output"`
-	LatencyMs    int64     `json:"latency_ms"`
-	Provider     string    `json:"provider"`
-	Model        string    `json:"model"`
-	Cost         float64   `json:"cost"`
-	ContextLevel string    `json:"context_level"`
-	Timestamp    time.Time `json:"timestamp"`
+	ID            string    `json:"id"`
+	TaskID        string    `json:"task_id"`
+	Repository    string    `json:"repository"`
+	Retriever     string    `json:"retriever"`
+	Query         string    `json:"query"`
+	FilesScanned  int       `json:"files_scanned"`
+	FilesLoaded   int       `json:"files_loaded"`
+	TokensContext int       `json:"tokens_context"`
+	TokensInput   int       `json:"tokens_input"`
+	TokensOutput  int       `json:"tokens_output"`
+	LatencyMs     int64     `json:"latency_ms"`
+	Provider      string    `json:"provider"`
+	Model         string    `json:"model"`
+	Cost          float64   `json:"cost"`
+	ContextLevel  string    `json:"context_level"`
+	Timestamp     time.Time `json:"timestamp"`
 }
 
 type BenchmarkStore struct {

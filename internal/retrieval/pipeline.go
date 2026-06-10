@@ -39,22 +39,22 @@ func (s PipelineStep) String() string {
 }
 
 type PipelineResult struct {
-	AnswerType      answertype.Classification
-	QueryClass      classifier.Classification
-	Results         []RetrievalResult
-	Context         string
-	ContextTokens   int
-	Source          PipelineStep
-	MemoryHit       bool
-	CacheHit        bool
-	Confidence      float64
+	AnswerType        answertype.Classification
+	QueryClass        classifier.Classification
+	Results           []RetrievalResult
+	Context           string
+	ContextTokens     int
+	Source            PipelineStep
+	MemoryHit         bool
+	CacheHit          bool
+	Confidence        float64
 	PassedQualityGate bool
 }
 
 type PipelineGateResult struct {
-	Passed      bool
-	Reason      string
-	Step        PipelineStep
+	Passed bool
+	Reason string
+	Step   PipelineStep
 }
 
 type PipelineDiagnostics struct {
@@ -235,22 +235,22 @@ func FormatDiagnostics(diag PipelineDiagnostics) string {
 	b.WriteString(diag.Retriever)
 	b.WriteString("\n")
 	b.WriteString("Memory Hit: ")
-	b.WriteString(fmt.Sprintf("%t", diag.MemoryHit))
+	fmt.Fprintf(&b, "%t", diag.MemoryHit)
 	b.WriteString("\n")
 	b.WriteString("Cache Hit: ")
-	b.WriteString(fmt.Sprintf("%t", diag.CacheHit))
+	fmt.Fprintf(&b, "%t", diag.CacheHit)
 	b.WriteString("\n")
 	b.WriteString("Context Tokens: ")
-	b.WriteString(fmt.Sprintf("%d", diag.ContextTokens))
+	fmt.Fprintf(&b, "%d", diag.ContextTokens)
 	b.WriteString("\n")
 	b.WriteString("Prompt Tokens: ")
-	b.WriteString(fmt.Sprintf("%d", diag.PromptTokens))
+	fmt.Fprintf(&b, "%d", diag.PromptTokens)
 	b.WriteString("\n")
 	b.WriteString("Output Tokens: ")
-	b.WriteString(fmt.Sprintf("%d", diag.OutputTokens))
+	fmt.Fprintf(&b, "%d", diag.OutputTokens)
 	b.WriteString("\n")
 	b.WriteString("Latency: ")
-	b.WriteString(fmt.Sprintf("%d ms", diag.LatencyMs))
+	fmt.Fprintf(&b, "%d ms", diag.LatencyMs)
 	return b.String()
 }
 

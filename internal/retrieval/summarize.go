@@ -6,15 +6,15 @@ import (
 )
 
 var (
-	rePyDocstring  = regexp.MustCompile(`"""([^"]*)"""`)
-	rePyClass      = regexp.MustCompile(`(?m)^\s*class\s+(\w+)`)
-	rePyFunction   = regexp.MustCompile(`(?m)^\s*def\s+(\w+)`)
-	reGoComment    = regexp.MustCompile(`(?m)^//\s*(.+)$`)
-	reGoType       = regexp.MustCompile(`(?m)^\s*type\s+(\w+)`)
-	reGoFunc       = regexp.MustCompile(`(?m)^\s*func\s+(\w+)`)
-	reJSClass      = regexp.MustCompile(`(?m)^\s*(?:export\s+)?(?:default\s+)?class\s+(\w+)`)
-	reJSFunction   = regexp.MustCompile(`(?m)^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(\w+)`)
-	rePyImport     = regexp.MustCompile(`(?m)^(?:from\s+\S+\s+)?import\s+(.+)$`)
+	rePyDocstring = regexp.MustCompile(`"""([^"]*)"""`)
+	rePyClass     = regexp.MustCompile(`(?m)^\s*class\s+(\w+)`)
+	rePyFunction  = regexp.MustCompile(`(?m)^\s*def\s+(\w+)`)
+	reGoComment   = regexp.MustCompile(`(?m)^//\s*(.+)$`)
+	reGoType      = regexp.MustCompile(`(?m)^\s*type\s+(\w+)`)
+	reGoFunc      = regexp.MustCompile(`(?m)^\s*func\s+(\w+)`)
+	reJSClass     = regexp.MustCompile(`(?m)^\s*(?:export\s+)?(?:default\s+)?class\s+(\w+)`)
+	reJSFunction  = regexp.MustCompile(`(?m)^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(\w+)`)
+	rePyImport    = regexp.MustCompile(`(?m)^(?:from\s+\S+\s+)?import\s+(.+)$`)
 )
 
 func splitCamelWords(s string) []string {
@@ -240,22 +240,16 @@ func buildTags(relPath string, classes, functions, imports []string) []string {
 	for _, c := range classes {
 		tags = append(tags, c)
 		words := splitCamelWords(c)
-		for _, w := range words {
-			tags = append(tags, w)
-		}
+		tags = append(tags, words...)
 	}
 
 	for _, f := range functions {
 		words := splitCamelWords(f)
-		for _, w := range words {
-			tags = append(tags, w)
-		}
+		tags = append(tags, words...)
 	}
 
 	if imports != nil {
-		for _, imp := range imports {
-			tags = append(tags, imp)
-		}
+		tags = append(tags, imports...)
 	}
 
 	return tags

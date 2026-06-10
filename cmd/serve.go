@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/okyashgajjar/costaffective-mcp/internal/mcpserver"
+	"github.com/spf13/cobra"
 )
 
 var serveCmd = &cobra.Command{

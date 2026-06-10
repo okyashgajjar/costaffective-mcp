@@ -19,7 +19,7 @@ func codexConfigPath() string {
 type CodexTarget struct{}
 
 func (t *CodexTarget) ID() string          { return "codex" }
-func (t *CodexTarget) DisplayName() string  { return "Codex CLI" }
+func (t *CodexTarget) DisplayName() string { return "Codex CLI" }
 
 func (t *CodexTarget) SupportsLocation(loc installer.Location) bool {
 	return loc == installer.LocationGlobal

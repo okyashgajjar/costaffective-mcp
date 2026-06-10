@@ -25,8 +25,8 @@ type Symbol struct {
 }
 
 type SymbolMatch struct {
-	Symbol   Symbol  `json:"symbol"`
-	Score    float64 `json:"score"`
-	Reason   string  `json:"reason"`
-	Snippet  string  `json:"snippet"`
+	Symbol  Symbol  `json:"symbol"`
+	Score   float64 `json:"score"`
+	Reason  string  `json:"reason"`
+	Snippet string  `json:"snippet"`
 }

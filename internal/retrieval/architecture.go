@@ -176,60 +176,60 @@ func (r *ArchitectureRetriever) Retrieve(ctx context.Context, query string) ([]R
 }
 
 var architectureTopicHints = map[string][]string{
-	"error":      {"error handling", "failures", "exceptions", "retry logic"},
-	"errors":     {"error handling", "failures", "exceptions", "retry logic"},
-	"exception":  {"error handling", "exceptions", "failures"},
-	"exceptions": {"error handling", "exceptions", "failures"},
-	"retry":      {"retry logic", "resilience"},
-	"fail":       {"failures", "error handling"},
-	"failure":    {"failures", "error handling"},
-	"cache":      {"caching", "performance"},
-	"caching":    {"caching", "performance"},
-	"cached":     {"caching", "performance"},
-	"prompt":     {"prompts", "LLM"},
-	"prompts":    {"prompts", "LLM"},
-	"chat":       {"chat", "conversation", "messaging"},
-	"repo":       {"repository", "git", "source control"},
-	"repomap":    {"repository mapping", "graph", "indexing"},
-	"map":        {"mapping", "graph", "indexing"},
-	"model":      {"LLM", "language model"},
-	"models":     {"LLM", "language model"},
-	"llm":        {"LLM", "language model"},
-	"edit":       {"editing", "code modification", "diffs"},
-	"editing":    {"editing", "code modification", "diffs"},
-	"diff":       {"diffs", "comparison", "patches"},
-	"history":    {"history", "conversation log"},
-	"voice":      {"voice input", "audio"},
-	"analytics":  {"analytics", "telemetry"},
-	"help":       {"help system", "documentation"},
-	"config":     {"configuration", "settings"},
-	"startup":    {"entry point", "startup", "initialization"},
-	"test":       {"testing"},
-	"token":      {"tokens", "tokenization"},
-	"context":    {"context", "context window"},
-	"coder":      {"AI coding agent", "code generation"},
-	"copy":       {"clipboard"},
-	"paste":      {"clipboard"},
-	"version":    {"version check"},
-	"architect":  {"architecture mode", "planning", "design"},
-	"system":     {"system design", "architecture"},
-	"workflow":   {"workflow", "lifecycle"},
-	"mechanism":  {"mechanism", "design", "architecture"},
-	"design":     {"design", "architecture"},
-	"feature":    {"feature", "capability"},
+	"error":       {"error handling", "failures", "exceptions", "retry logic"},
+	"errors":      {"error handling", "failures", "exceptions", "retry logic"},
+	"exception":   {"error handling", "exceptions", "failures"},
+	"exceptions":  {"error handling", "exceptions", "failures"},
+	"retry":       {"retry logic", "resilience"},
+	"fail":        {"failures", "error handling"},
+	"failure":     {"failures", "error handling"},
+	"cache":       {"caching", "performance"},
+	"caching":     {"caching", "performance"},
+	"cached":      {"caching", "performance"},
+	"prompt":      {"prompts", "LLM"},
+	"prompts":     {"prompts", "LLM"},
+	"chat":        {"chat", "conversation", "messaging"},
+	"repo":        {"repository", "git", "source control"},
+	"repomap":     {"repository mapping", "graph", "indexing"},
+	"map":         {"mapping", "graph", "indexing"},
+	"model":       {"LLM", "language model"},
+	"models":      {"LLM", "language model"},
+	"llm":         {"LLM", "language model"},
+	"edit":        {"editing", "code modification", "diffs"},
+	"editing":     {"editing", "code modification", "diffs"},
+	"diff":        {"diffs", "comparison", "patches"},
+	"history":     {"history", "conversation log"},
+	"voice":       {"voice input", "audio"},
+	"analytics":   {"analytics", "telemetry"},
+	"help":        {"help system", "documentation"},
+	"config":      {"configuration", "settings"},
+	"startup":     {"entry point", "startup", "initialization"},
+	"test":        {"testing"},
+	"token":       {"tokens", "tokenization"},
+	"context":     {"context", "context window"},
+	"coder":       {"AI coding agent", "code generation"},
+	"copy":        {"clipboard"},
+	"paste":       {"clipboard"},
+	"version":     {"version check"},
+	"architect":   {"architecture mode", "planning", "design"},
+	"system":      {"system design", "architecture"},
+	"workflow":    {"workflow", "lifecycle"},
+	"mechanism":   {"mechanism", "design", "architecture"},
+	"design":      {"design", "architecture"},
+	"feature":     {"feature", "capability"},
 	"integration": {"integration", "API"},
-	"data":       {"data", "model", "persistence"},
-	"schema":     {"schema", "data model"},
-	"migration":  {"migration", "database"},
-	"plugin":     {"plugin", "extension"},
-	"extension":  {"plugin", "extension"},
-	"command":    {"CLI", "command line"},
-	"service":    {"service", "API"},
-	"worker":     {"worker", "background", "concurrency"},
-	"queue":      {"queue", "async", "background"},
-	"async":      {"async", "background"},
-	"http":       {"HTTP", "API", "REST"},
-	"api":        {"API", "HTTP"},
+	"data":        {"data", "model", "persistence"},
+	"schema":      {"schema", "data model"},
+	"migration":   {"migration", "database"},
+	"plugin":      {"plugin", "extension"},
+	"extension":   {"plugin", "extension"},
+	"command":     {"CLI", "command line"},
+	"service":     {"service", "API"},
+	"worker":      {"worker", "background", "concurrency"},
+	"queue":       {"queue", "async", "background"},
+	"async":       {"async", "background"},
+	"http":        {"HTTP", "API", "REST"},
+	"api":         {"API", "HTTP"},
 }
 
 func queryToTopics(query string) []string {
@@ -255,7 +255,7 @@ func queryToTopics(query string) []string {
 func tokenizeQuery(query string) []string {
 	q := strings.ToLower(query)
 	words := strings.FieldsFunc(q, func(r rune) bool {
-		return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9')
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
 	})
 	stop := map[string]bool{
 		"the": true, "a": true, "an": true, "is": true, "are": true, "how": true,
@@ -336,7 +336,7 @@ func filenameRelevance(queryLower, filePath string) float64 {
 	combined := base + " " + dir
 
 	qWords := strings.FieldsFunc(queryLower, func(r rune) bool {
-		return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9')
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
 	})
 	directHits := 0
 	synonymHits := 0
@@ -376,7 +376,7 @@ func descriptionRelevance(queryLower, description string) float64 {
 	}
 	descLower := strings.ToLower(description)
 	qWords := strings.FieldsFunc(queryLower, func(r rune) bool {
-		return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9')
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
 	})
 	hits := 0
 	for _, w := range qWords {

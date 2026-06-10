@@ -12,7 +12,7 @@ import (
 type CursorTarget struct{}
 
 func (t *CursorTarget) ID() string          { return "cursor" }
-func (t *CursorTarget) DisplayName() string  { return "Cursor" }
+func (t *CursorTarget) DisplayName() string { return "Cursor" }
 
 func (t *CursorTarget) SupportsLocation(loc installer.Location) bool {
 	return true

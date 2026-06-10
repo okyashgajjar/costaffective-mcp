@@ -22,7 +22,7 @@ built:  %s
 var rootCmd = &cobra.Command{
 	Use:     "costaffective",
 	Version: version,
-	Short:  "Code Intelligence Research Platform",
+	Short:   "Code Intelligence Research Platform",
 	Long: `costaffective is a Code Intelligence Research Platform providing
 MCP (Model Context Protocol) server for AI coding clients.
 

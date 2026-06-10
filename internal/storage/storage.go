@@ -13,14 +13,14 @@ import (
 
 // BenchmarkRecord represents a single benchmark entry.
 type BenchmarkRecord struct {
-	Task       string    `json:"task"`
-	Model      string    `json:"model"`
-	TokensIn   int       `json:"tokens_in"`
-	TokensOut  int       `json:"tokens_out"`
-	LatencyMs  int64     `json:"latency_ms"`
-	Cost       float64   `json:"cost"`
-	Provider   string    `json:"provider"`
-	Timestamp  time.Time `json:"timestamp"`
+	Task      string    `json:"task"`
+	Model     string    `json:"model"`
+	TokensIn  int       `json:"tokens_in"`
+	TokensOut int       `json:"tokens_out"`
+	LatencyMs int64     `json:"latency_ms"`
+	Cost      float64   `json:"cost"`
+	Provider  string    `json:"provider"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // Store handles persistence of benchmark records and other storage needs.

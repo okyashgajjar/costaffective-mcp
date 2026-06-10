@@ -118,7 +118,7 @@ func searchCodeHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	}
 
 	results = retrieval.FilterResults(results, 0.15, retrieval.GuessMaxResults(atc))
-	
+
 	if len(results) == 0 {
 		return mcp.NewToolResultText("No relevant code found."), nil
 	}

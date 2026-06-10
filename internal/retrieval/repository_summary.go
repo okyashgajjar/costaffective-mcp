@@ -8,13 +8,13 @@ import (
 )
 
 type RepositorySummary struct {
-	Purpose      string            `json:"-"`
-	Modules      []ModuleSummary   `json:"modules"`
-	FileCount    int               `json:"file_count"`
-	LanguageMix  map[string]int    `json:"language_mix"`
-	SymbolCount  int               `json:"symbol_count"`
-	TestFiles    int               `json:"test_files"`
-	Architecture ArchitectureMap   `json:"architecture"`
+	Purpose      string          `json:"-"`
+	Modules      []ModuleSummary `json:"modules"`
+	FileCount    int             `json:"file_count"`
+	LanguageMix  map[string]int  `json:"language_mix"`
+	SymbolCount  int             `json:"symbol_count"`
+	TestFiles    int             `json:"test_files"`
+	Architecture ArchitectureMap `json:"architecture"`
 }
 
 type ModuleSummary struct {
@@ -95,9 +95,9 @@ func BuildRepositorySummary(ks *KnowledgeStore) (*RepositorySummary, string) {
 
 func (rs *RepositorySummary) Format() string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Files: %d\n", rs.FileCount))
-	b.WriteString(fmt.Sprintf("Symbols: %d\n", rs.SymbolCount))
-	b.WriteString(fmt.Sprintf("Test Files: %d\n", rs.TestFiles))
+	fmt.Fprintf(&b, "Files: %d\n", rs.FileCount)
+	fmt.Fprintf(&b, "Symbols: %d\n", rs.SymbolCount)
+	fmt.Fprintf(&b, "Test Files: %d\n", rs.TestFiles)
 
 	if len(rs.LanguageMix) > 0 {
 		var langs []string
@@ -105,26 +105,26 @@ func (rs *RepositorySummary) Format() string {
 			langs = append(langs, fmt.Sprintf("%s:%d", lang, count))
 		}
 		sort.Strings(langs)
-		b.WriteString(fmt.Sprintf("Languages: %s\n", strings.Join(langs, ", ")))
+		fmt.Fprintf(&b, "Languages: %s\n", strings.Join(langs, ", "))
 	}
 
 	b.WriteString("Modules:\n")
 	for _, m := range rs.Modules {
-		b.WriteString(fmt.Sprintf("  %s (%s) - %d files, %d symbols\n", m.Name, m.Language, m.FileCount, m.SymbolCount))
+		fmt.Fprintf(&b, "  %s (%s) - %d files, %d symbols\n", m.Name, m.Language, m.FileCount, m.SymbolCount)
 		if len(m.TopSymbols) > 0 {
 			top := m.TopSymbols
 			if len(top) > 3 {
 				top = top[:3]
 			}
-			b.WriteString(fmt.Sprintf("    Symbols: %s\n", strings.Join(top, ", ")))
+			fmt.Fprintf(&b, "    Symbols: %s\n", strings.Join(top, ", "))
 		}
 	}
 
 	if len(rs.Architecture.Layers) > 0 {
-		b.WriteString(fmt.Sprintf("Layers: %s\n", strings.Join(rs.Architecture.Layers, " -> ")))
+		fmt.Fprintf(&b, "Layers: %s\n", strings.Join(rs.Architecture.Layers, " -> "))
 	}
 	if len(rs.Architecture.Entries) > 0 {
-		b.WriteString(fmt.Sprintf("Entry Points: %s\n", strings.Join(rs.Architecture.Entries, ", ")))
+		fmt.Fprintf(&b, "Entry Points: %s\n", strings.Join(rs.Architecture.Entries, ", "))
 	}
 
 	return b.String()
@@ -163,12 +163,8 @@ func extractTopSymbols(ks *KnowledgeStore, mod ModuleInfo) []string {
 		if err != nil {
 			continue
 		}
-		for _, fn := range fs.Functions {
-			symbols = append(symbols, fn)
-		}
-		for _, c := range fs.Classes {
-			symbols = append(symbols, c)
-		}
+		symbols = append(symbols, fs.Functions...)
+		symbols = append(symbols, fs.Classes...)
 	}
 	if len(symbols) > 5 {
 		symbols = symbols[:5]

@@ -11,8 +11,8 @@ import (
 
 type ClaudeTarget struct{}
 
-func (t *ClaudeTarget) ID() string           { return "claude" }
-func (t *ClaudeTarget) DisplayName() string   { return "Claude Code" }
+func (t *ClaudeTarget) ID() string          { return "claude" }
+func (t *ClaudeTarget) DisplayName() string { return "Claude Code" }
 
 func (t *ClaudeTarget) SupportsLocation(loc installer.Location) bool {
 	return true
@@ -57,7 +57,7 @@ func (t *ClaudeTarget) writeMcpEntry(loc installer.Location) installer.WriteResu
 	file := t.mcpJSONPath(loc)
 	cfg := installer.ReadJSONFile(file)
 	before, _ := cfg["mcpServers"].(map[string]interface{})
-	beforeEntry, _ := before["costaffective"]
+	beforeEntry := before["costaffective"]
 	after := installer.GetMcpServerConfig()
 
 	if installer.DeepEqual(beforeEntry, after) {

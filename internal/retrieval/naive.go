@@ -113,14 +113,14 @@ func (r *NaiveRetriever) buildIndex() error {
 
 	r.results = results
 	r.metrics = RetrievalMetrics{
-		FilesScanned:     scanned,
-		FilesLoaded:      loaded,
-		Tokens:           totalTokens(results),
-		LatencyMs:        time.Since(start).Milliseconds(),
-		MatchedFiles:     loaded,
-		MatchedSnippets:  loaded,
-		MatchCount:       loaded,
-		Confidence:       1.0,
+		FilesScanned:    scanned,
+		FilesLoaded:     loaded,
+		Tokens:          totalTokens(results),
+		LatencyMs:       time.Since(start).Milliseconds(),
+		MatchedFiles:    loaded,
+		MatchedSnippets: loaded,
+		MatchCount:      loaded,
+		Confidence:      1.0,
 	}
 	return nil
 }

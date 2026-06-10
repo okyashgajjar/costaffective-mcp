@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	"github.com/okyashgajjar/costaffective-mcp/internal/cache"
-	"github.com/okyashgajjar/costaffective-mcp/internal/treesitter"
-	"github.com/okyashgajjar/costaffective-mcp/internal/repository"
-	"github.com/okyashgajjar/costaffective-mcp/internal/retrieval"
-	"github.com/okyashgajjar/costaffective-mcp/internal/repo_memory"
 	"github.com/okyashgajjar/costaffective-mcp/internal/discovery_memory"
 	"github.com/okyashgajjar/costaffective-mcp/internal/kmemory"
+	"github.com/okyashgajjar/costaffective-mcp/internal/repo_memory"
+	"github.com/okyashgajjar/costaffective-mcp/internal/repository"
+	"github.com/okyashgajjar/costaffective-mcp/internal/retrieval"
+	"github.com/okyashgajjar/costaffective-mcp/internal/treesitter"
 )
 
 // RepoSession represents the stateful repository context for a conversation.
@@ -34,8 +34,8 @@ type RepoSession struct {
 	LastResolved  string // Name of the last major symbol discussed
 
 	// Persistent memories
-	RepoMem   *repo_memory.RepoMemory
-	DiscMem   *discovery_memory.DiscoveryMemory
+	RepoMem *repo_memory.RepoMemory
+	DiscMem *discovery_memory.DiscoveryMemory
 
 	// Session knowledge memory (structured facts across turns)
 	KnowledgeMem *kmemory.KnowledgeMemory
@@ -194,11 +194,11 @@ func (rs *RepoSession) ResolveQuery(query string) string {
 // memory if the query exactly matches a known entity.
 func (rs *RepoSession) GetCachedContext(query string) ([]retrieval.RetrievalResult, bool) {
 	lower := strings.ToLower(query)
-	
+
 	// Direct symbol match
 	if res, ok := rs.RecentSymbols[lower]; ok {
 		return []retrieval.RetrievalResult{res}, true
 	}
-	
+
 	return nil, false
 }

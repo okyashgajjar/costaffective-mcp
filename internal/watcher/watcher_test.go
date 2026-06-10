@@ -12,10 +12,10 @@ import (
 
 func TestWatchdog(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	// Create dummy git repo
 	os.MkdirAll(filepath.Join(tempDir, ".git"), 0755)
-	
+
 	ctx := context.Background()
 	rs, err := session.NewRepoSession(ctx, tempDir, "test_session")
 	if err != nil {

@@ -7,11 +7,11 @@ import (
 )
 
 type MatchedFile struct {
-	FilePath    string   `json:"file_path"`
-	LineFrom    int      `json:"line_from"`
-	LineTo      int      `json:"line_to"`
-	MatchCount  int      `json:"match_count"`
-	Snippet     string   `json:"snippet"`
+	FilePath     string   `json:"file_path"`
+	LineFrom     int      `json:"line_from"`
+	LineTo       int      `json:"line_to"`
+	MatchCount   int      `json:"match_count"`
+	Snippet      string   `json:"snippet"`
 	MatchedLines []string `json:"matched_lines"`
 }
 
@@ -27,14 +27,14 @@ type RetrievalResult struct {
 }
 
 type RetrievalDiagnostics struct {
-	RawResults     int               `json:"raw_results"`
-	AfterRanking   int               `json:"after_ranking"`
-	PassedFilter   int               `json:"passed_filter"`
-	FilesScanned   int               `json:"files_scanned"`
-	FilesLoaded    int               `json:"files_loaded"`
-	TotalMatchHits int               `json:"total_match_hits"`
+	RawResults     int                `json:"raw_results"`
+	AfterRanking   int                `json:"after_ranking"`
+	PassedFilter   int                `json:"passed_filter"`
+	FilesScanned   int                `json:"files_scanned"`
+	FilesLoaded    int                `json:"files_loaded"`
+	TotalMatchHits int                `json:"total_match_hits"`
 	TopScores      map[string]float64 `json:"top_scores,omitempty"`
-	Provenance     string            `json:"provenance"`
+	Provenance     string             `json:"provenance"`
 }
 
 type RetrievalMetrics struct {
