@@ -24,9 +24,9 @@ type Category struct {
 }
 
 type Policy struct {
-	Version      string     `yaml:"version"`
-	GlobalRules  []string   `yaml:"global_rules"` // Path to shared global rule files (optional)
-	Categories   []Category `yaml:"categories"`
+	Version     string     `yaml:"version"`
+	GlobalRules []string   `yaml:"global_rules"` // Path to shared global rule files (optional)
+	Categories  []Category `yaml:"categories"`
 }
 
 // ParsePolicy looks for .costwise.yaml in the repo root and parses it.

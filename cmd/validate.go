@@ -17,7 +17,7 @@ var validateCmd = &cobra.Command{
 		if len(args) > 0 {
 			repoRoot = args[0]
 		}
-		
+
 		absRoot, err := filepath.Abs(repoRoot)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -53,10 +53,10 @@ var validateCmd = &cobra.Command{
 				return nil
 			}
 			rel, _ := filepath.Rel(absRoot, path)
-			
+
 			res := engine.EvaluateFile(rel, string(data))
 			filesScanned++
-			
+
 			if len(res.Violations) > 0 {
 				fmt.Printf("❌ %s (Category: %s, Score: %d/100)\n", rel, res.Category, res.Score)
 				for _, v := range res.Violations {

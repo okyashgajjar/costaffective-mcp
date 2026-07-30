@@ -719,7 +719,7 @@ func validateCodeHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 			return nil
 		}
 		rel, _ := filepath.Rel(absRoot, path)
-		
+
 		res := engine.EvaluateFile(rel, string(data))
 		if len(res.Violations) > 0 {
 			fmt.Fprintf(&b, "❌ %s (Score: %d/100)\n", rel, res.Score)

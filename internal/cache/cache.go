@@ -108,7 +108,7 @@ func (k CacheKey) hash() string {
 
 func (c *Cache) Get(key CacheKey) (*CacheEntry, bool) {
 	keyHash := key.hash()
-	
+
 	row := c.db.QueryRow(`
 		SELECT results_json, context_text, tokens, created_at 
 		FROM cache_entries WHERE key_hash = ?`, keyHash)
@@ -116,7 +116,7 @@ func (c *Cache) Get(key CacheKey) (*CacheEntry, bool) {
 	var entry CacheEntry
 	if err := row.Scan(&entry.ResultsJSON, &entry.Context, &entry.Tokens, &entry.CreatedAt); err == nil {
 		c.hits++
-		c.db.Exec("UPDATE cache_entries SET last_accessed = ? WHERE key_hash = ?", time.Now(), keyHash)
+		_, _ = c.db.Exec("UPDATE cache_entries SET last_accessed = ? WHERE key_hash = ?", time.Now(), keyHash)
 		return &entry, true
 	}
 
@@ -127,8 +127,8 @@ func (c *Cache) Get(key CacheKey) (*CacheEntry, bool) {
 func (c *Cache) Put(key CacheKey, entry *CacheEntry) {
 	keyHash := key.hash()
 	now := time.Now()
-	
-	c.db.Exec(`
+
+	_, _ = c.db.Exec(`
 		INSERT OR REPLACE INTO cache_entries
 			(key_hash, repo_hash, query, retriever, context_level, token_budget,
 			 results_json, context_text, tokens, created_at, last_accessed)
@@ -137,7 +137,7 @@ func (c *Cache) Put(key CacheKey, entry *CacheEntry) {
 		entry.ResultsJSON, entry.Context, entry.Tokens, entry.CreatedAt, now)
 
 	// SQLite-based eviction
-	c.db.Exec(`
+	_, _ = c.db.Exec(`
 		DELETE FROM cache_entries WHERE key_hash NOT IN (
 			SELECT key_hash FROM cache_entries ORDER BY last_accessed DESC LIMIT ?
 		)
@@ -145,7 +145,7 @@ func (c *Cache) Put(key CacheKey, entry *CacheEntry) {
 }
 
 func (c *Cache) Invalidate(repoHash string) {
-	c.db.Exec("DELETE FROM cache_entries WHERE repo_hash = ?", repoHash)
+	_, _ = c.db.Exec("DELETE FROM cache_entries WHERE repo_hash = ?", repoHash)
 }
 
 func (c *Cache) Stats() CacheStats {
@@ -156,7 +156,7 @@ func (c *Cache) Stats() CacheStats {
 	}
 
 	var size int
-	c.db.QueryRow("SELECT COUNT(*) FROM cache_entries").Scan(&size)
+	_ = c.db.QueryRow("SELECT COUNT(*) FROM cache_entries").Scan(&size)
 
 	return CacheStats{
 		Hits:    c.hits,

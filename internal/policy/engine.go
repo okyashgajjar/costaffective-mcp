@@ -21,10 +21,10 @@ type EvaluationResult struct {
 }
 
 type Engine struct {
-	policy      *Policy
-	regexCache  map[string]*regexp.Regexp
-	globCache   map[string]*regexp.Regexp
-	cacheMu     sync.RWMutex
+	policy     *Policy
+	regexCache map[string]*regexp.Regexp
+	globCache  map[string]*regexp.Regexp
+	cacheMu    sync.RWMutex
 }
 
 func NewEngine(p *Policy) *Engine {
@@ -46,7 +46,7 @@ func (e *Engine) compileRegex(pattern string) (*regexp.Regexp, error) {
 
 	e.cacheMu.Lock()
 	defer e.cacheMu.Unlock()
-	
+
 	// Double-check
 	if re, ok := e.regexCache[pattern]; ok {
 		return re, nil
@@ -64,7 +64,7 @@ func (e *Engine) compileRegex(pattern string) (*regexp.Regexp, error) {
 func globToRegex(glob string) string {
 	var sb strings.Builder
 	sb.WriteString("^")
-	
+
 	// Fast translation: * -> .*, ? -> ., . -> \.
 	for i := 0; i < len(glob); i++ {
 		c := glob[i]
@@ -119,7 +119,7 @@ func (e *Engine) matchGlob(pattern, path string) bool {
 		path = filepath.ToSlash(path)
 		return re.MatchString(path)
 	}
-	
+
 	// Fallback to standard filepath.Match if translation failed
 	matched, _ := filepath.Match(pattern, filepath.Base(path))
 	return matched
@@ -166,7 +166,7 @@ func (e *Engine) EvaluateFile(relPath, content string) EvaluationResult {
 	// 2. Evaluate rules
 	for i := range matchedCat.Rules {
 		rule := &matchedCat.Rules[i]
-		
+
 		// Does this rule apply to this file?
 		if len(rule.Match) > 0 && !e.matchAnyGlob(rule.Match, relPath) {
 			continue
