@@ -9,3 +9,5 @@ This project is connected to the **costwise** MCP server. Its tools keep the ses
 - Default budget unless insufficient — one `large` call can add ~10k uncached tokens.
 
 **Start with `session_brief`** to catch up on prior context before re-deriving it from scratch. Use `sessions=5` to recall the last 5 sessions' work.
+
+**Always run `validate_code`** after creating or modifying architectural components to ensure they comply with the project's `.costwise.yaml` policy.
