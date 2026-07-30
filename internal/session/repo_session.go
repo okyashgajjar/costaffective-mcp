@@ -169,11 +169,20 @@ func (rs *RepoSession) RecallFacts(query string) []string {
 
 // Close releases all underlying resources.
 func (rs *RepoSession) Close() {
+	if rs.Indexer != nil {
+		rs.Indexer.Close()
+	}
 	if rs.DB != nil {
 		rs.DB.Close()
 	}
 	if rs.Cache != nil {
 		rs.Cache.Close()
+	}
+	if rs.RepoMem != nil {
+		rs.RepoMem.Close()
+	}
+	if rs.DiscMem != nil {
+		rs.DiscMem.Close()
 	}
 }
 

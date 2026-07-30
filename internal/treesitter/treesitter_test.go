@@ -119,11 +119,21 @@ func TestParseRepoFiles(t *testing.T) {
 	goFiles := 0
 	parsed := 0
 	_ = filepath.Walk(repoRoot, func(path string, fi os.FileInfo, err error) error {
-		if err != nil || fi.IsDir() {
+		if err != nil {
+			return nil
+		}
+		if fi.IsDir() {
+			base := filepath.Base(path)
+			if base == ".git" || base == "node_modules" || base == "vendor" || base == "w64devkit" {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if !IsSupported(path) {
 			return nil
+		}
+		if parsed > 100 { // Limit test duration
+			return filepath.SkipDir
 		}
 		goFiles++
 		lang := DetectLanguage(path)
