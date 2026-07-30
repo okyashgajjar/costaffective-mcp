@@ -10,6 +10,7 @@ import (
 	"github.com/okyashgajjar/costwise-mcp/internal/cache"
 	"github.com/okyashgajjar/costwise-mcp/internal/discovery_memory"
 	"github.com/okyashgajjar/costwise-mcp/internal/kmemory"
+	"github.com/okyashgajjar/costwise-mcp/internal/ledger"
 	"github.com/okyashgajjar/costwise-mcp/internal/repo_memory"
 	"github.com/okyashgajjar/costwise-mcp/internal/repository"
 	"github.com/okyashgajjar/costwise-mcp/internal/retrieval"
@@ -171,7 +172,6 @@ func (rs *RepoSession) RecallFacts(query string) []string {
 	return out
 }
 
-// Close releases all underlying resources.
 func (rs *RepoSession) Close() {
 	if rs.Indexer != nil {
 		rs.Indexer.Close()
@@ -187,6 +187,9 @@ func (rs *RepoSession) Close() {
 	}
 	if rs.DiscMem != nil {
 		rs.DiscMem.Close()
+	}
+	if rs.Repo != nil && rs.Repo.Root != "" {
+		ledger.Close(rs.Repo.Root)
 	}
 }
 

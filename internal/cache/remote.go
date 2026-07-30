@@ -12,11 +12,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
-// AttemptRemoteFetch tries to download a pre-computed cache artifact from GitHub Actions
-// if no local cache exists, preventing cold starts on massive repositories.
 func AttemptRemoteFetch(ctx context.Context, repoRoot string) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	// First check if a cache already exists
 	cacheDir := filepath.Join(repoRoot, ".mycli-fts")
 	if _, err := os.Stat(cacheDir); err == nil {

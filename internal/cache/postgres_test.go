@@ -1,7 +1,7 @@
 package cache
 
 import (
-	"context"
+	"database/sql"
 	"os"
 	"sync"
 	"testing"
@@ -60,46 +60,46 @@ func TestPostgresBackend_Integration(t *testing.T) {
 	// 3. Test Concurrency (100 concurrent Puts to simulate enterprise load)
 	var wg sync.WaitGroup
 	errs := make(chan error, 100)
-	
+
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			
+
 			// Simulate slightly different timestamps and token budgets to trigger upserts
 			iterKey := key
 			iterKey.TokenBudget = 1000 + idx
-			
+
 			err := backend.Put(iterKey.hash(), iterKey, entry, 100)
 			if err != nil {
 				errs <- err
 			}
 		}(i)
 	}
-	
+
 	wg.Wait()
 	close(errs)
-	
+
 	for err := range errs {
 		t.Errorf("Concurrent Put failed: %v", err)
 	}
-	
+
 	// Verify Size
 	size, err := backend.Size()
 	if err != nil {
 		t.Fatalf("Size failed: %v", err)
 	}
-	
+
 	if size == 0 {
 		t.Errorf("Expected size > 0, got 0")
 	}
-	
+
 	// Test Invalidate
 	err = backend.Invalidate("repo123")
 	if err != nil {
 		t.Fatalf("Invalidate failed: %v", err)
 	}
-	
+
 	size, _ = backend.Size()
 	if size != 0 {
 		t.Errorf("Expected size 0 after invalidate, got %d", size)

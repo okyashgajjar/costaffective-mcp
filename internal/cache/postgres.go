@@ -25,6 +25,10 @@ func NewPostgresBackend(connStr string) (*PostgresBackend, error) {
 		return nil, fmt.Errorf("failed to ping postgres DB: %w", err)
 	}
 
+	db.SetMaxOpenConns(50)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
 	if err := createPostgresTables(db); err != nil {
 		db.Close()
 		return nil, err

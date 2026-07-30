@@ -342,7 +342,7 @@ func findReferencesHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	}
 
 	var results []retrieval.RetrievalResult
-	
+
 	lsifRet := retrieval.NewLSIFRetriever()
 	if err := lsifRet.Initialize(ctx, rs.Repo); err == nil {
 		// Find symbol definition via Tree-sitter first to get the location

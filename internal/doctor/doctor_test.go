@@ -249,7 +249,7 @@ func buildTempBinary(t *testing.T) string {
 	dir := t.TempDir()
 	out := filepath.Join(dir, binaryNameForTest())
 
-	cmd := exec.Command("go", "build", "-o", out, "../../cmd/costwise/")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", out, "../../cmd/costwise/")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("build temp binary: %v", err)

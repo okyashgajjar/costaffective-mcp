@@ -56,7 +56,7 @@ func (s *SemanticIndexer) Search(query string, limit int) ([]SemanticResult, err
 	q2 := bluge.NewMatchQuery(query).SetField("docstrings")
 	q3 := bluge.NewMatchQuery(query).SetField("path")
 	q := bluge.NewBooleanQuery().AddShould(q1, q2, q3)
-	
+
 	req := bluge.NewTopNSearch(limit, q).WithStandardAggregations()
 	dmi, err := reader.Search(context.Background(), req)
 	if err != nil {

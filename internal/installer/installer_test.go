@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 	}
 	testBinaryPath = filepath.Join(dir, binName)
 
-	cmd := exec.Command("go", "build", "-o", testBinaryPath, "../../cmd/costwise/")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", testBinaryPath, "../../cmd/costwise/")
 	if err := cmd.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to build test binary: %v\n", err)
 		os.Exit(1)
@@ -52,7 +52,7 @@ func tempBinary(t *testing.T) string {
 	dir := t.TempDir()
 	out := filepath.Join(dir, binaryNameForTest())
 
-	cmd := exec.Command("go", "build", "-o", out, "../../cmd/costwise/")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", out, "../../cmd/costwise/")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("build temp binary: %v", err)

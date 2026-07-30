@@ -57,14 +57,21 @@ func NewIndex() *Index {
 }
 
 // Parse parses a standard .lsif JSON-lines dump and builds an in-memory graph.
-func Parse(filepath string) (*Index, error) {
-	file, err := os.Open(filepath)
+func Parse(filepath string) (idx *Index, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("lsif parsing panicked: %v", r)
+		}
+	}()
+
+	var file *os.File
+	file, err = os.Open(filepath)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	idx := NewIndex()
+	idx = NewIndex()
 
 	documents := make(map[int]string) // DocumentID -> URI
 	ranges := make(map[int]RangeData) // RangeID -> RangeData
