@@ -1,0 +1,4 @@
+./binary.go
+./installer.go
+./target.go
+./installer_test.go

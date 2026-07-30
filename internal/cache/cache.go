@@ -39,29 +39,31 @@ type CacheStats struct {
 	MaxSize int     `json:"max_size"`
 }
 
-// Cache is an LRU cache persistent (SQLite) layers.
+type StorageBackend interface {
+	Get(keyHash string) (*CacheEntry, error)
+	Put(keyHash string, key CacheKey, entry *CacheEntry, maxSize int) error
+	Invalidate(repoHash string) error
+	Size() (int, error)
+	Close() error
+}
+
+// Cache is an LRU cache persistent (SQLite or Postgres) layers.
 type Cache struct {
 	maxSize int
-	db      *sql.DB
+	backend StorageBackend
 	hits    int64
 	misses  int64
 }
 
-// NewCache creates a new LRU cache with SQLite persistence.
-func NewCache(repoRoot string, maxSize int) (*Cache, error) {
-	if maxSize <= 0 {
-		maxSize = 100
-	}
+// SQLiteBackend implements StorageBackend using SQLite
+type SQLiteBackend struct {
+	db *sql.DB
+}
 
-	dbDir := filepath.Join(repoRoot, ".mycli-fts")
-	if err := os.MkdirAll(dbDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create cache directory: %w", err)
-	}
-	dbPath := filepath.Join(dbDir, "cache.db")
-
+func NewSQLiteBackend(dbPath string) (*SQLiteBackend, error) {
 	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL")
 	if err != nil {
-		return nil, fmt.Errorf("failed to open cache DB: %w", err)
+		return nil, fmt.Errorf("failed to open sqlite DB: %w", err)
 	}
 
 	if err := createCacheTables(db); err != nil {
@@ -69,9 +71,88 @@ func NewCache(repoRoot string, maxSize int) (*Cache, error) {
 		return nil, err
 	}
 
+	return &SQLiteBackend{db: db}, nil
+}
+
+func (s *SQLiteBackend) Get(keyHash string) (*CacheEntry, error) {
+	row := s.db.QueryRow(`
+		SELECT results_json, context_text, tokens, created_at 
+		FROM cache_entries WHERE key_hash = ?`, keyHash)
+
+	var entry CacheEntry
+	if err := row.Scan(&entry.ResultsJSON, &entry.Context, &entry.Tokens, &entry.CreatedAt); err != nil {
+		return nil, err
+	}
+	_, _ = s.db.Exec("UPDATE cache_entries SET last_accessed = ? WHERE key_hash = ?", time.Now(), keyHash)
+	return &entry, nil
+}
+
+func (s *SQLiteBackend) Put(keyHash string, key CacheKey, entry *CacheEntry, maxSize int) error {
+	now := time.Now()
+	_, err := s.db.Exec(`
+		INSERT OR REPLACE INTO cache_entries
+			(key_hash, repo_hash, query, retriever, context_level, token_budget,
+			 results_json, context_text, tokens, created_at, last_accessed)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, keyHash, key.RepoHash, key.Query, key.Retriever, key.ContextLevel, key.TokenBudget,
+		entry.ResultsJSON, entry.Context, entry.Tokens, entry.CreatedAt, now)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.Exec(`
+		DELETE FROM cache_entries WHERE key_hash NOT IN (
+			SELECT key_hash FROM cache_entries ORDER BY last_accessed DESC LIMIT ?
+		)
+	`, maxSize)
+	return err
+}
+
+func (s *SQLiteBackend) Invalidate(repoHash string) error {
+	_, err := s.db.Exec("DELETE FROM cache_entries WHERE repo_hash = ?", repoHash)
+	return err
+}
+
+func (s *SQLiteBackend) Size() (int, error) {
+	var size int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM cache_entries").Scan(&size)
+	return size, err
+}
+
+func (s *SQLiteBackend) Close() error {
+	return s.db.Close()
+}
+
+// NewCache creates a new LRU cache with SQLite or Postgres persistence.
+func NewCache(repoRoot string, maxSize int) (*Cache, error) {
+	if maxSize <= 0 {
+		maxSize = 100
+	}
+
+	var backend StorageBackend
+	var err error
+
+	pgURL := os.Getenv("COSTWISE_PG_URL")
+	if pgURL != "" {
+		backend, err = NewPostgresBackend(pgURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to init postgres backend: %w", err)
+		}
+	} else {
+		dbDir := filepath.Join(repoRoot, ".mycli-fts")
+		if err := os.MkdirAll(dbDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create cache directory: %w", err)
+		}
+		dbPath := filepath.Join(dbDir, "cache.db")
+		backend, err = NewSQLiteBackend(dbPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to init sqlite backend: %w", err)
+		}
+	}
+
 	return &Cache{
 		maxSize: maxSize,
-		db:      db,
+		backend: backend,
 	}, nil
 }
 
@@ -108,44 +189,22 @@ func (k CacheKey) hash() string {
 
 func (c *Cache) Get(key CacheKey) (*CacheEntry, bool) {
 	keyHash := key.hash()
-
-	row := c.db.QueryRow(`
-		SELECT results_json, context_text, tokens, created_at 
-		FROM cache_entries WHERE key_hash = ?`, keyHash)
-
-	var entry CacheEntry
-	if err := row.Scan(&entry.ResultsJSON, &entry.Context, &entry.Tokens, &entry.CreatedAt); err == nil {
+	entry, err := c.backend.Get(keyHash)
+	if err == nil && entry != nil {
 		c.hits++
-		_, _ = c.db.Exec("UPDATE cache_entries SET last_accessed = ? WHERE key_hash = ?", time.Now(), keyHash)
-		return &entry, true
+		return entry, true
 	}
-
 	c.misses++
 	return nil, false
 }
 
 func (c *Cache) Put(key CacheKey, entry *CacheEntry) {
 	keyHash := key.hash()
-	now := time.Now()
-
-	_, _ = c.db.Exec(`
-		INSERT OR REPLACE INTO cache_entries
-			(key_hash, repo_hash, query, retriever, context_level, token_budget,
-			 results_json, context_text, tokens, created_at, last_accessed)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, keyHash, key.RepoHash, key.Query, key.Retriever, key.ContextLevel, key.TokenBudget,
-		entry.ResultsJSON, entry.Context, entry.Tokens, entry.CreatedAt, now)
-
-	// SQLite-based eviction
-	_, _ = c.db.Exec(`
-		DELETE FROM cache_entries WHERE key_hash NOT IN (
-			SELECT key_hash FROM cache_entries ORDER BY last_accessed DESC LIMIT ?
-		)
-	`, c.maxSize)
+	_ = c.backend.Put(keyHash, key, entry, c.maxSize)
 }
 
 func (c *Cache) Invalidate(repoHash string) {
-	_, _ = c.db.Exec("DELETE FROM cache_entries WHERE repo_hash = ?", repoHash)
+	_ = c.backend.Invalidate(repoHash)
 }
 
 func (c *Cache) Stats() CacheStats {
@@ -155,8 +214,7 @@ func (c *Cache) Stats() CacheStats {
 		hitRate = float64(c.hits) / float64(total)
 	}
 
-	var size int
-	_ = c.db.QueryRow("SELECT COUNT(*) FROM cache_entries").Scan(&size)
+	size, _ := c.backend.Size()
 
 	return CacheStats{
 		Hits:    c.hits,
@@ -168,8 +226,8 @@ func (c *Cache) Stats() CacheStats {
 }
 
 func (c *Cache) Close() error {
-	if c.db != nil {
-		return c.db.Close()
+	if c.backend != nil {
+		return c.backend.Close()
 	}
 	return nil
 }
