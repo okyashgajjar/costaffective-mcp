@@ -341,14 +341,32 @@ func findReferencesHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	ret := retrieval.NewReferenceRetriever()
-	if err := ret.Initialize(ctx, rs.Repo); err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+	var results []retrieval.RetrievalResult
+	
+	lsifRet := retrieval.NewLSIFRetriever()
+	if err := lsifRet.Initialize(ctx, rs.Repo); err == nil {
+		// Find symbol definition via Tree-sitter first to get the location
+		tsRet := retrieval.NewSymbolRetriever()
+		if err := tsRet.Initialize(ctx, rs.Repo); err == nil {
+			if defs, _ := tsRet.Retrieve(ctx, symbol); len(defs) > 0 {
+				// LSIF lines are typically 0-indexed, Tree-sitter is 1-indexed
+				if res, err := lsifRet.FindReferences(symbol, defs[0].File, defs[0].LineFrom-1, 0); err == nil && len(res) > 0 {
+					results = res
+				}
+			}
+		}
 	}
 
-	results, err := ret.Retrieve(ctx, symbol)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+	if len(results) == 0 {
+		ret := retrieval.NewReferenceRetriever()
+		if err := ret.Initialize(ctx, rs.Repo); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		res, err := ret.Retrieve(ctx, symbol)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		results = res
 	}
 
 	atc := answertype.Classification{Type: answertype.Reference}
@@ -367,14 +385,30 @@ func findCallersHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	ret := retrieval.NewCallGraphRetriever()
-	if err := ret.Initialize(ctx, rs.Repo); err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+	var results []retrieval.RetrievalResult
+
+	lsifRet := retrieval.NewLSIFRetriever()
+	if err := lsifRet.Initialize(ctx, rs.Repo); err == nil {
+		tsRet := retrieval.NewSymbolRetriever()
+		if err := tsRet.Initialize(ctx, rs.Repo); err == nil {
+			if defs, _ := tsRet.Retrieve(ctx, function); len(defs) > 0 {
+				if res, err := lsifRet.FindReferences(function, defs[0].File, defs[0].LineFrom-1, 0); err == nil && len(res) > 0 {
+					results = res
+				}
+			}
+		}
 	}
 
-	results, err := ret.Retrieve(ctx, function)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+	if len(results) == 0 {
+		ret := retrieval.NewCallGraphRetriever()
+		if err := ret.Initialize(ctx, rs.Repo); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		res, err := ret.Retrieve(ctx, function)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		results = res
 	}
 
 	atc := answertype.Classification{Type: answertype.Caller}
