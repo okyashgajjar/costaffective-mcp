@@ -71,6 +71,10 @@ func newRepoSession(ctx context.Context, repoRoot string, sessionID string, shou
 		}
 	}
 
+	// Attempt to fetch a pre-computed artifact from remote before local indexing starts.
+	// This runs fast and skips if a cache already exists locally.
+	_ = cache.AttemptRemoteFetch(ctx, info.Root)
+
 	db, err := treesitter.NewSymbolDB(info.Root)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open symbol DB: %w", err)
