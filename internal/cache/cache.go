@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"container/list"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -39,10 +41,18 @@ type CacheStats struct {
 	MaxSize int     `json:"max_size"`
 }
 
-// Cache is an LRU cache persistent (SQLite) layers.
+type cacheItem struct {
+	keyHash string
+	entry   *CacheEntry
+}
+
+// Cache is an LRU cache with both in-memory and persistent (SQLite) layers.
 type Cache struct {
 	maxSize int
+	entries map[string]*list.Element
+	lru     *list.List
 	db      *sql.DB
+	mu      sync.RWMutex
 	hits    int64
 	misses  int64
 }
@@ -69,10 +79,17 @@ func NewCache(repoRoot string, maxSize int) (*Cache, error) {
 		return nil, err
 	}
 
-	return &Cache{
+	c := &Cache{
 		maxSize: maxSize,
+		entries: make(map[string]*list.Element),
+		lru:     list.New(),
 		db:      db,
-	}, nil
+	}
+
+	// Load existing entries from SQLite into memory LRU
+	c.loadFromDB()
+
+	return c, nil
 }
 
 func createCacheTables(db *sql.DB) error {
@@ -95,6 +112,7 @@ func createCacheTables(db *sql.DB) error {
 	return err
 }
 
+// RepoHash computes a SHA256 hash of the repository root path.
 func RepoHash(repoRoot string) string {
 	h := sha256.Sum256([]byte(repoRoot))
 	return hex.EncodeToString(h[:8])
@@ -106,67 +124,113 @@ func (k CacheKey) hash() string {
 	return hex.EncodeToString(h[:])
 }
 
+// Get retrieves an entry from the cache. Returns nil, false on miss.
 func (c *Cache) Get(key CacheKey) (*CacheEntry, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	keyHash := key.hash()
-
-	row := c.db.QueryRow(`
-		SELECT results_json, context_text, tokens, created_at 
-		FROM cache_entries WHERE key_hash = ?`, keyHash)
-
-	var entry CacheEntry
-	if err := row.Scan(&entry.ResultsJSON, &entry.Context, &entry.Tokens, &entry.CreatedAt); err == nil {
+	if elem, ok := c.entries[keyHash]; ok {
+		c.lru.MoveToFront(elem)
 		c.hits++
+		item := elem.Value.(*cacheItem)
+
+		// Update last_accessed in DB
 		_, _ = c.db.Exec("UPDATE cache_entries SET last_accessed = ? WHERE key_hash = ?", time.Now(), keyHash)
-		return &entry, true
+
+		return item.entry, true
 	}
 
 	c.misses++
 	return nil, false
 }
 
+// Put adds an entry to the cache, evicting the least-recently-used if at capacity.
 func (c *Cache) Put(key CacheKey, entry *CacheEntry) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	keyHash := key.hash()
-	now := time.Now()
 
-	_, _ = c.db.Exec(`
-		INSERT OR REPLACE INTO cache_entries
-			(key_hash, repo_hash, query, retriever, context_level, token_budget,
-			 results_json, context_text, tokens, created_at, last_accessed)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, keyHash, key.RepoHash, key.Query, key.Retriever, key.ContextLevel, key.TokenBudget,
-		entry.ResultsJSON, entry.Context, entry.Tokens, entry.CreatedAt, now)
+	// Update existing entry
+	if elem, ok := c.entries[keyHash]; ok {
+		c.lru.MoveToFront(elem)
+		elem.Value.(*cacheItem).entry = entry
+		c.persistEntry(keyHash, key, entry)
+		return
+	}
 
-	// SQLite-based eviction
-	_, _ = c.db.Exec(`
-		DELETE FROM cache_entries WHERE key_hash NOT IN (
-			SELECT key_hash FROM cache_entries ORDER BY last_accessed DESC LIMIT ?
-		)
-	`, c.maxSize)
+	// Evict if at capacity
+	for c.lru.Len() >= c.maxSize {
+		back := c.lru.Back()
+		if back == nil {
+			break
+		}
+		evicted := c.lru.Remove(back).(*cacheItem)
+		delete(c.entries, evicted.keyHash)
+		_, _ = c.db.Exec("DELETE FROM cache_entries WHERE key_hash = ?", evicted.keyHash)
+	}
+
+	// Add new entry
+	item := &cacheItem{keyHash: keyHash, entry: entry}
+	elem := c.lru.PushFront(item)
+	c.entries[keyHash] = elem
+	c.persistEntry(keyHash, key, entry)
 }
 
+// Invalidate removes all cache entries for a given repo hash.
 func (c *Cache) Invalidate(repoHash string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Invalidate matching entries in memory using keys loaded from DB below
+
+	// Query DB for entries belonging to this repo
+	rows, err := c.db.Query("SELECT key_hash FROM cache_entries WHERE repo_hash = ?", repoHash)
+	if err == nil {
+		defer rows.Close()
+		repoKeys := make(map[string]bool)
+		for rows.Next() {
+			var kh string
+			if rows.Scan(&kh) == nil {
+				repoKeys[kh] = true
+			}
+		}
+
+		// Remove only repo-specific entries from memory
+		for keyHash, elem := range c.entries {
+			if repoKeys[keyHash] {
+				c.lru.Remove(elem)
+				delete(c.entries, keyHash)
+			}
+		}
+	}
+
+	// Remove from DB
 	_, _ = c.db.Exec("DELETE FROM cache_entries WHERE repo_hash = ?", repoHash)
 }
 
+// Stats returns cache performance metrics.
 func (c *Cache) Stats() CacheStats {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	total := c.hits + c.misses
 	hitRate := 0.0
 	if total > 0 {
 		hitRate = float64(c.hits) / float64(total)
 	}
 
-	var size int
-	_ = c.db.QueryRow("SELECT COUNT(*) FROM cache_entries").Scan(&size)
-
 	return CacheStats{
 		Hits:    c.hits,
 		Misses:  c.misses,
 		HitRate: hitRate,
-		Size:    size,
+		Size:    c.lru.Len(),
 		MaxSize: c.maxSize,
 	}
 }
 
+// Close closes the cache database.
 func (c *Cache) Close() error {
 	if c.db != nil {
 		return c.db.Close()
@@ -174,6 +238,53 @@ func (c *Cache) Close() error {
 	return nil
 }
 
+func (c *Cache) persistEntry(keyHash string, key CacheKey, entry *CacheEntry) {
+	now := time.Now()
+	_, _ = c.db.Exec(`
+		INSERT OR REPLACE INTO cache_entries
+			(key_hash, repo_hash, query, retriever, context_level, token_budget,
+			 results_json, context_text, tokens, created_at, last_accessed)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, keyHash, key.RepoHash, key.Query, key.Retriever, key.ContextLevel, key.TokenBudget,
+		entry.ResultsJSON, entry.Context, entry.Tokens, entry.CreatedAt, now)
+}
+
+func (c *Cache) loadFromDB() {
+	rows, err := c.db.Query(`
+		SELECT key_hash, results_json, context_text, tokens, created_at
+		FROM cache_entries
+		ORDER BY last_accessed DESC
+		LIMIT ?
+	`, c.maxSize)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var keyHash string
+		var resultsJSON []byte
+		var contextText string
+		var tokens int
+		var createdAt time.Time
+
+		if err := rows.Scan(&keyHash, &resultsJSON, &contextText, &tokens, &createdAt); err != nil {
+			continue
+		}
+
+		entry := &CacheEntry{
+			ResultsJSON: resultsJSON,
+			Context:     contextText,
+			Tokens:      tokens,
+			CreatedAt:   createdAt,
+		}
+		item := &cacheItem{keyHash: keyHash, entry: entry}
+		elem := c.lru.PushBack(item)
+		c.entries[keyHash] = elem
+	}
+}
+
+// MarshalResults serializes retrieval results to JSON for caching.
 func MarshalResults(results interface{}) []byte {
 	data, err := json.Marshal(results)
 	if err != nil {
@@ -182,6 +293,7 @@ func MarshalResults(results interface{}) []byte {
 	return data
 }
 
+// UnmarshalResults deserializes cached retrieval results.
 func UnmarshalResults(data []byte, target interface{}) error {
 	return json.Unmarshal(data, target)
 }

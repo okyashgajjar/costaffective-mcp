@@ -71,6 +71,7 @@ func (r *AutoRetriever) Initialize(ctx context.Context, repo *repository.Reposit
 	// Non-symbol retrievers still initialize normally
 	otherCandidates := map[string]Retriever{
 		"grep":         NewGrepRetriever(),
+		"fts":          NewFTSRetriever(r.storageDir),
 		"architecture": NewArchitectureRetriever(),
 		"flowgraph":    NewFlowGraphRetriever(),
 	}
@@ -93,7 +94,7 @@ func (r *AutoRetriever) Retrieve(ctx context.Context, query string) ([]Retrieval
 
 	route := map[classifier.QueryClass]string{
 		classifier.SymbolQuery:       "treesitter",
-		classifier.TextQuery:         "grep",
+		classifier.TextQuery:         "fts",
 		classifier.RepositoryQuery:   "grep",
 		classifier.ReferenceQuery:    "reference",
 		classifier.CallQuery:         "callgraph",
@@ -101,12 +102,12 @@ func (r *AutoRetriever) Retrieve(ctx context.Context, query string) ([]Retrieval
 		classifier.FlowQuery:         "flowgraph",
 	}
 	fallbackOrder := map[classifier.QueryClass][]string{
-		classifier.SymbolQuery:       {"grep"},
-		classifier.TextQuery:         {"treesitter"},
-		classifier.RepositoryQuery:   {"treesitter"},
+		classifier.SymbolQuery:       {"fts", "grep"},
+		classifier.TextQuery:         {"grep", "treesitter"},
+		classifier.RepositoryQuery:   {"fts", "treesitter"},
 		classifier.ReferenceQuery:    {"treesitter", "grep"},
 		classifier.CallQuery:         {"treesitter", "reference"},
-		classifier.ArchitectureQuery: {"grep"},
+		classifier.ArchitectureQuery: {"grep", "fts"},
 		classifier.FlowQuery:         {"callgraph", "treesitter"},
 	}
 
@@ -135,7 +136,7 @@ func (r *AutoRetriever) Retrieve(ctx context.Context, query string) ([]Retrieval
 	}
 
 	if len(results) == 0 {
-		for _, name := range []string{"grep", "treesitter"} {
+		for _, name := range []string{"grep", "fts", "treesitter"} {
 			if name == primaryName {
 				continue
 			}

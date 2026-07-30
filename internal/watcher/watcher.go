@@ -70,11 +70,6 @@ func (wd *Watchdog) Start() error {
 }
 
 func (wd *Watchdog) watchLoop() {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("Panic recovered in watchLoop: %v", r)
-		}
-	}()
 	defer wd.watcher.Close()
 
 	for {
@@ -124,20 +119,13 @@ func (wd *Watchdog) triggerReindex(changedPath string) {
 	}
 
 	wd.timer = time.AfterFunc(1000*time.Millisecond, func() {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("Panic recovered in watchdog incremental reindex timer: %v", r)
-			}
-		}()
-
 		wd.mu.Lock()
 		files := wd.changedFiles
 		wd.changedFiles = nil
 		wd.mu.Unlock()
 
 		log.Println("Watchdog: changes detected, starting incremental reindex...")
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		defer cancel()
+		ctx := context.Background()
 		result, err := wd.repoSession.Indexer.Index(ctx)
 		if err != nil {
 			log.Printf("Watchdog: failed to reindex: %v", err)

@@ -1,7 +1,6 @@
 package ledger
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -109,11 +108,27 @@ func ReadAll(repoPath string) ([]Event, error) {
 }
 
 func splitLines(data []byte) [][]byte {
-	return bytes.Split(data, []byte("\n"))
+	var lines [][]byte
+	start := 0
+	for i, b := range data {
+		if b == '\n' {
+			next := make([]byte, i-start)
+			copy(next, data[start:i])
+			lines = append(lines, next)
+			start = i + 1
+		}
+	}
+	if start < len(data) {
+		lines = append(lines, data[start:])
+	}
+	return lines
 }
 
 func trimBOM(line []byte) []byte {
-	return bytes.TrimPrefix(line, []byte("\xef\xbb\xbf"))
+	if len(line) >= 3 && line[0] == 0xEF && line[1] == 0xBB && line[2] == 0xBF {
+		return line[3:]
+	}
+	return line
 }
 
 const (

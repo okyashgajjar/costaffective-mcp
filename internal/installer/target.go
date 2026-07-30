@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 )
 
@@ -126,7 +125,9 @@ func WriteJSONFile(filePath string, data map[string]interface{}) error {
 }
 
 func DeepEqual(a, b interface{}) bool {
-	return reflect.DeepEqual(a, b)
+	aj, _ := json.Marshal(a)
+	bj, _ := json.Marshal(b)
+	return string(aj) == string(bj)
 }
 
 func Exists(path string) bool {

@@ -13,7 +13,6 @@ import (
 
 	"github.com/okyashgajjar/costwise-mcp/internal/answertype"
 	"github.com/okyashgajjar/costwise-mcp/internal/ledger"
-	"github.com/okyashgajjar/costwise-mcp/internal/policy"
 	"github.com/okyashgajjar/costwise-mcp/internal/repository"
 	"github.com/okyashgajjar/costwise-mcp/internal/retrieval"
 )
@@ -23,18 +22,6 @@ const (
 	maxFactBytes         = 10 << 10 // 10 KB
 )
 
-func withRecovery(handler func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error)) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	return func(ctx context.Context, req mcp.CallToolRequest) (res *mcp.CallToolResult, err error) {
-		defer func() {
-			if r := recover(); r != nil {
-				res = mcp.NewToolResultError(fmt.Sprintf("Internal Server Error (Panic): %v", r))
-				err = nil
-			}
-		}()
-		return handler(ctx, req)
-	}
-}
-
 func RegisterTools(s *server.MCPServer) {
 	// search_code
 	s.AddTool(mcp.NewTool("search_code",
@@ -42,7 +29,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
 		mcp.WithString("query", mcp.Required(), mcp.Description("The search query or question")),
 		mcp.WithString("budget", mcp.Description("Token budget: small (500), medium (1500), large (3000). Default is medium."), mcp.Enum("small", "medium", "large")),
-	), withRecovery(searchCodeHandler))
+	), searchCodeHandler)
 
 	// find_symbol
 	s.AddTool(mcp.NewTool("find_symbol",
@@ -50,7 +37,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
 		mcp.WithString("symbol", mcp.Required(), mcp.Description("Symbol name to search for")),
 		mcp.WithString("budget", mcp.Description("Token budget: small (500), medium (1500), large (3000). Default is small."), mcp.Enum("small", "medium", "large")),
-	), withRecovery(findSymbolHandler))
+	), findSymbolHandler)
 
 	// read_symbol — the full implementation body of a symbol, not just its location.
 	s.AddTool(mcp.NewTool("read_symbol",
@@ -58,7 +45,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
 		mcp.WithString("symbol", mcp.Required(), mcp.Description("Symbol name to read (function/method/type)")),
 		mcp.WithString("budget", mcp.Description("Token budget: small (500), medium (1500), large (3000). Default is medium."), mcp.Enum("small", "medium", "large")),
-	), withRecovery(readSymbolHandler))
+	), readSymbolHandler)
 
 	// find_references
 	s.AddTool(mcp.NewTool("find_references",
@@ -66,7 +53,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
 		mcp.WithString("symbol", mcp.Required(), mcp.Description("Symbol name to find references for")),
 		mcp.WithString("budget", mcp.Description("Token budget: small (500), medium (1500), large (3000). Default is medium."), mcp.Enum("small", "medium", "large")),
-	), withRecovery(findReferencesHandler))
+	), findReferencesHandler)
 
 	// find_callers
 	s.AddTool(mcp.NewTool("find_callers",
@@ -74,7 +61,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
 		mcp.WithString("function", mcp.Required(), mcp.Description("Function name to find callers for")),
 		mcp.WithString("budget", mcp.Description("Token budget: small (500), medium (1500), large (3000). Default is medium."), mcp.Enum("small", "medium", "large")),
-	), withRecovery(findCallersHandler))
+	), findCallersHandler)
 
 	// get_repository_summary
 	s.AddTool(mcp.NewTool("get_repository_summary",
@@ -82,13 +69,13 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
 		mcp.WithString("budget", mcp.Description("Token budget: small (~500), medium (~1500), large (~3000). Default small."), mcp.Enum("small", "medium", "large")),
 		mcp.WithString("module", mcp.Description("Optional: a module name or directory path to drill into (its files + symbols) instead of the whole-repo overview.")),
-	), withRecovery(repoSummaryHandler))
+	), repoSummaryHandler)
 
 	// index_repository
 	s.AddTool(mcp.NewTool("index_repository",
 		mcp.WithDescription("Manually trigger a re-index of the repository. Usually unnecessary as the watcher auto-reindexes."),
 		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
-	), withRecovery(indexRepoHandler))
+	), indexRepoHandler)
 
 	// remember — persist a small durable fact so it need not be repeated inline.
 	s.AddTool(mcp.NewTool("remember",
@@ -96,7 +83,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
 		mcp.WithString("key", mcp.Required(), mcp.Description("Short label for the fact, e.g. 'auth-entrypoint'")),
 		mcp.WithString("fact", mcp.Required(), mcp.Description("The fact to remember, in one or two sentences")),
-	), withRecovery(rememberHandler))
+	), rememberHandler)
 
 	// stash_context — park a large blob out of the window, return a tiny handle.
 	s.AddTool(mcp.NewTool("stash_context",
@@ -104,7 +91,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
 		mcp.WithString("content", mcp.Required(), mcp.Description("The large text to stash out of context")),
 		mcp.WithString("label", mcp.Description("Optional short label describing the content")),
-	), withRecovery(stashContextHandler))
+	), stashContextHandler)
 
 	// recall — query-scoped read of remembered facts and stashed blobs.
 	s.AddTool(mcp.NewTool("recall",
@@ -113,13 +100,13 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithString("query", mcp.Required(), mcp.Description("What to look for within the source")),
 		mcp.WithString("source", mcp.Description("A stash handle to read from, or 'facts' for remembered facts. Omit to search both.")),
 		mcp.WithString("budget", mcp.Description("Token budget: small (~500), medium (~1500), large (~3000). Default small."), mcp.Enum("small", "medium", "large")),
-	), withRecovery(recallHandler))
+	), recallHandler)
 
 	// allow_dir — grant runtime permission for a path outside the default allowlist.
 	s.AddTool(mcp.NewTool("allow_dir",
 		mcp.WithDescription("Grant temporary permission to access a directory that is not in the default allowed paths. Call this only after getting explicit approval from the user. After adding, retry the original tool call with the same repo_path."),
 		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the directory to allow (must exist)")),
-	), withRecovery(allowDirHandler))
+	), allowDirHandler)
 
 	// session_brief — compact catch-up on past sessions in this repo.
 	s.AddTool(mcp.NewTool("session_brief",
@@ -128,13 +115,7 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithString("scope", mcp.Description("Scope: \"last\" (default, since last session boundary), \"today\", \"all\".")),
 		mcp.WithString("budget", mcp.Description("Token budget (default 300). Events are oldest-first within scope.")),
 		mcp.WithString("sessions", mcp.Description("Number of past sessions to return (e.g. \"5\" for last 5). Overrides scope. Default: 1 (last session).")),
-	), withRecovery(sessionBriefHandler))
-
-	// validate_code
-	s.AddTool(mcp.NewTool("validate_code",
-		mcp.WithDescription("Validate the repository against its .costwise.yaml policy, checking for required/denied architectural patterns."),
-		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
-	), withRecovery(validateCodeHandler))
+	), sessionBriefHandler)
 }
 
 func getStringArg(args interface{}, key string) string {
@@ -681,59 +662,4 @@ func trimToBudget(lines []string, budget int) string {
 		b.WriteByte('\n')
 	}
 	return b.String()
-}
-
-func validateCodeHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	repoPath := getStringArg(request.Params.Arguments, "repo_path")
-	if repoPath == "" {
-		return mcp.NewToolResultError("repo_path is required"), nil
-	}
-
-	absRoot, err := filepath.Abs(repoPath)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-
-	p, err := policy.ParsePolicy(absRoot)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	if p == nil {
-		return mcp.NewToolResultText("No .costwise.yaml policy found."), nil
-	}
-
-	engine := policy.NewEngine(p)
-	var b strings.Builder
-	var totalViolations int
-
-	_ = filepath.WalkDir(absRoot, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			if d != nil && d.IsDir() && (d.Name() == ".git" || d.Name() == "node_modules" || d.Name() == "vendor") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil
-		}
-		rel, _ := filepath.Rel(absRoot, path)
-
-		res := engine.EvaluateFile(rel, string(data))
-		if len(res.Violations) > 0 {
-			fmt.Fprintf(&b, "❌ %s (Score: %d/100)\n", rel, res.Score)
-			for _, v := range res.Violations {
-				fmt.Fprintf(&b, "   - [Line %d] %s\n", v.Line, v.Message)
-			}
-			totalViolations += len(res.Violations)
-		}
-		return nil
-	})
-
-	if totalViolations == 0 {
-		return mcp.NewToolResultText("Validation passed. 0 violations."), nil
-	}
-	fmt.Fprintf(&b, "\nTotal Violations: %d\n", totalViolations)
-	return mcp.NewToolResultText(b.String()), nil
 }
