@@ -13,6 +13,7 @@ import (
 
 	"github.com/okyashgajjar/costwise-mcp/internal/answertype"
 	"github.com/okyashgajjar/costwise-mcp/internal/ledger"
+	"github.com/okyashgajjar/costwise-mcp/internal/policy"
 	"github.com/okyashgajjar/costwise-mcp/internal/repository"
 	"github.com/okyashgajjar/costwise-mcp/internal/retrieval"
 )
@@ -116,6 +117,12 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithString("budget", mcp.Description("Token budget (default 300). Events are oldest-first within scope.")),
 		mcp.WithString("sessions", mcp.Description("Number of past sessions to return (e.g. \"5\" for last 5). Overrides scope. Default: 1 (last session).")),
 	), sessionBriefHandler)
+
+	// validate_code
+	s.AddTool(mcp.NewTool("validate_code",
+		mcp.WithDescription("Validate the repository against its .costwise.yaml policy, checking for required/denied architectural patterns."),
+		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
+	), validateCodeHandler)
 }
 
 func getStringArg(args interface{}, key string) string {
@@ -662,4 +669,59 @@ func trimToBudget(lines []string, budget int) string {
 		b.WriteByte('\n')
 	}
 	return b.String()
+}
+
+func validateCodeHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	repoPath := getStringArg(request.Params.Arguments, "repo_path")
+	if repoPath == "" {
+		return mcp.NewToolResultError("repo_path is required"), nil
+	}
+
+	absRoot, err := filepath.Abs(repoPath)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	p, err := policy.ParsePolicy(absRoot)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if p == nil {
+		return mcp.NewToolResultText("No .costwise.yaml policy found."), nil
+	}
+
+	engine := policy.NewEngine(p)
+	var b strings.Builder
+	var totalViolations int
+
+	err = filepath.WalkDir(absRoot, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			if d != nil && d.IsDir() && (d.Name() == ".git" || d.Name() == "node_modules" || d.Name() == "vendor") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		rel, _ := filepath.Rel(absRoot, path)
+		
+		res := engine.EvaluateFile(rel, string(data))
+		if len(res.Violations) > 0 {
+			fmt.Fprintf(&b, "❌ %s (Score: %d/100)\n", rel, res.Score)
+			for _, v := range res.Violations {
+				fmt.Fprintf(&b, "   - [Line %d] %s\n", v.Line, v.Message)
+			}
+			totalViolations += len(res.Violations)
+		}
+		return nil
+	})
+
+	if totalViolations == 0 {
+		return mcp.NewToolResultText("Validation passed. 0 violations."), nil
+	}
+	fmt.Fprintf(&b, "\nTotal Violations: %d\n", totalViolations)
+	return mcp.NewToolResultText(b.String()), nil
 }
