@@ -40,7 +40,7 @@ var validateCmd = &cobra.Command{
 		var totalViolations int
 		var filesScanned int
 
-		err = filepath.WalkDir(absRoot, func(path string, d os.DirEntry, err error) error {
+		_ = filepath.WalkDir(absRoot, func(path string, d os.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				if d != nil && d.IsDir() && (d.Name() == ".git" || d.Name() == "node_modules" || d.Name() == "vendor") {
 					return filepath.SkipDir
