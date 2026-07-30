@@ -190,6 +190,7 @@ When user asks "improve", "analyze", "review architecture", "suggest features":
 - `go test ./...` must pass
 - All 12 answer types integrate into existing pipeline without breaking it
 - All 8 existing systems (SharedIndexer, SymbolDB, Auto Router, Query Classifier, retrievers, RepoSession, LRU Cache, Knowledge Store) remain as-is — new code integrates, never replaces.
+- **Pre-Commit Verification**: ALWAYS run `golangci-lint run` and `go test ./...` locally before committing, pushing, or declaring a task complete. Fix any and all lint errors or failing tests prior to opening a PR. Do not rely on CI to catch these errors.
 
 <!-- costwise-session:start (managed by `costwise skill` — do not edit) -->
 
