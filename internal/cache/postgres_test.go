@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"database/sql"
 	"os"
 	"sync"
 	"testing"
