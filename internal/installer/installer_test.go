@@ -324,7 +324,11 @@ func TestDeepEqual(t *testing.T) {
 
 func TestCopyBinary(t *testing.T) {
 	src := tempBinary(t)
-	dst := filepath.Join(t.TempDir(), "costwise")
+	binName := "costwise"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	dst := filepath.Join(t.TempDir(), binName)
 
 	if err := copyBinary(src, dst); err != nil {
 		t.Fatalf("copyBinary should succeed: %v", err)
@@ -359,7 +363,11 @@ func TestCopyBinary_InvalidSrc(t *testing.T) {
 	if err := os.WriteFile(src, []byte("not an executable"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	dst := filepath.Join(dir, "costwise")
+	binName := "costwise"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	dst := filepath.Join(dir, binName)
 
 	err := copyBinary(src, dst)
 	if err == nil {

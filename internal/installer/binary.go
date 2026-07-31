@@ -108,7 +108,11 @@ func CheckBinary() BinaryCheckResult {
 		r.Exists = true
 		fi, err := os.Stat(path)
 		if err == nil {
-			r.Executable = (fi.Mode()&0111 != 0)
+			if runtime.GOOS == "windows" {
+				r.Executable = true
+			} else {
+				r.Executable = (fi.Mode()&0111 != 0)
+			}
 		}
 		r.Version = getBinaryVersion(path)
 		break

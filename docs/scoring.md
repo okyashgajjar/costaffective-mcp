@@ -6,7 +6,7 @@
 
 | Tool | Max Confidence | Key Influencers |
 |------|---------------|-----------------|
-| **FTS** | **0.40** | BM25 rank, match count, snippet presence, file-type boosts |
+| **Semantic (Bluge)** | **Variable** | BM25 rank, document frequency |
 | **Tree-sitter Symbol DB** | **1.0** (exact name match) | Name match quality, camelCase overlap |
 | **Grep** | **0.92** | Unique keyword ratio (80%), hit density (20%) |
 | **Reference** | **0.70** | Base 0.40 + ref count (diminishing after 10) |
@@ -20,67 +20,16 @@
 
 ---
 
-## 1. FTS (Full-Text Search) — `internal/retrieval/fts.go`
+## 1. Semantic Search (Bluge) — `internal/retrieval/semantic.go`
 
-### Core Score Formula (line 198)
+### Core Score Formula (Bluge BM25)
 
-```
-rankingScore = qualityConf × boost
-// clamped to 1.0
-```
+The Semantic Indexer uses the Bluge search engine (a native Go library) which implements standard BM25 / TF-IDF scoring. 
+Scores are returned natively from the Bluge match context and passed directly as the result's `Score` value.
 
-Where:
+### Overal Semantic Confidence
+Confidence is directly extracted from the top Bluge match result's `Score` attribute. Max confidence usually depends on the BM25 bounds but generally scales linearly based on document corpus frequency.
 
-- **`qualityConf`** = `ftsConfidence(rank, fileMatches, len(snippet))`
-- **`boost`** = `computeFileBoost(filePath, repoRoot, query)` (range: 1.0 to ~7.8)
-
-### `ftsConfidence` function (lines 411–431)
-
-```
-base = 1.0 / (1.0 + rank / 2.0)    // rank >= 0
-base = 1.0 / (1.0 - rank / 2.0)    // rank < 0  (FTS5 can return negative ranks)
-
-quality = 0.12                      // base quality floor
-if snippetLen > 0  → quality += 0.15
-if matchCount > 3  → quality += 0.05
-if matchCount > 10 → quality += 0.05
-
-conf = base × quality
-// clamped to max 0.40 — HARD CAP: confidence never exceeds 0.40
-```
-
-**`FTS5 rank`**: SQLite FTS5's built-in BM25-derived rank (lower = better match).
-
-### `computeFileBoost` function (lines 356–409)
-
-| Factor | Boost | Condition |
-|--------|-------|-----------|
-| Filename match | × 1.5 | Query word appears in filename |
-| README | × 2.0 | Path starts with "readme" or is README.md |
-| Docs directory | × 1.5 | Path contains "doc" or "docs" |
-| Has functions | × 1.3 | Content contains "func " or "def " |
-| Has classes | × 1.3 | Content contains "class " or "interface " |
-| Has comments | × 1.2 | Content contains comment markers |
-
-Boosts are multiplicative; max theoretical boost ≈ 1.5 × 2.0 × 1.5 × 1.3 × 1.3 × 1.2 ≈ **9.1** (but rankingScore capped to 1.0).
-
-### Ranking (lines 217–225)
-
-Results sorted descending by `Score`. Top 5 kept.
-
-### Overall FTS Confidence (lines 227–230)
-
-```
-confidence = ftsConfidence(0, results[0].MatchHits, len(results[0].Snippet))
-```
-
-Uses `rank = 0` (best-case assumption). Max 0.40.
-
-### FTS5 Query Construction (lines 246–291)
-
-- Stopword filtered
-- Long queries: `"phrase" OR word1 OR word2 OR ...` (phrase search preferred)
-- Short queries: single term
 
 ---
 

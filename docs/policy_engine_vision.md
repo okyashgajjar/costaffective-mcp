@@ -1,5 +1,6 @@
 # CostWise Policy Engine: Vision & Implementation Plan
 
+> **Note**: This vision has been fully implemented in CostWise V3. The `costwise validate` CLI command, the `validate_architecture` MCP tool, and the centralized `costwise-architecture.yaml` configuration are now active features.
 ## 1. Vision and Motivation
 Currently, **CostWise-MCP** is an exceptionally powerful observation tool. It uses a Tree-Sitter AST engine to natively understand the codebase, extracting exact symbols, imports, call graphs, and references. However, it is passive; it tells you *what* the architecture is, but doesn't judge if it is *correct*.
 
