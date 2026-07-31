@@ -48,7 +48,7 @@ func (r *LSIFRetriever) FindReferences(symbol string, filepath string, line int,
 	}
 
 	// Find the range that matches the symbol at the given location
-	var targetResultSetID int = -1
+	targetResultSetID := -1
 
 	for rangeID, loc := range r.index.Ranges {
 		if loc.URI == filepath && loc.Range.Start.Line == line {

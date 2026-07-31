@@ -28,7 +28,7 @@ func TestLSIF_Resolution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	lsifPath := filepath.Join(tmpDir, "dump.lsif")
 	if err := os.WriteFile(lsifPath, []byte(lsifData), 0644); err != nil {
@@ -70,7 +70,7 @@ func TestLSIF_MemoryFootprint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	lsifPath := filepath.Join(tmpDir, "dump_large.lsif")
 	f, err := os.Create(lsifPath)
@@ -80,14 +80,14 @@ func TestLSIF_MemoryFootprint(t *testing.T) {
 	defer f.Close()
 
 	// Write 1 document, 100k ranges, 100k next edges, 100k contains
-	f.WriteString(`{"id": 1, "type": "vertex", "label": "metaData", "version": "0.4.0", "projectRoot": "file:///test"}` + "\n")
-	f.WriteString(`{"id": 2, "type": "vertex", "label": "document", "uri": "file:///src/main.go"}` + "\n")
-	f.WriteString(`{"id": 3, "type": "vertex", "label": "resultSet"}` + "\n")
-	f.WriteString(`{"id": 4, "type": "vertex", "label": "definitionResult"}` + "\n")
-	f.WriteString(`{"id": 5, "type": "edge", "label": "textDocument/definition", "outV": 3, "inV": 4}` + "\n")
+	_, _ = f.WriteString(`{"id": 1, "type": "vertex", "label": "metaData", "version": "0.4.0", "projectRoot": "file:///test"}` + "\n")
+	_, _ = f.WriteString(`{"id": 2, "type": "vertex", "label": "document", "uri": "file:///src/main.go"}` + "\n")
+	_, _ = f.WriteString(`{"id": 3, "type": "vertex", "label": "resultSet"}` + "\n")
+	_, _ = f.WriteString(`{"id": 4, "type": "vertex", "label": "definitionResult"}` + "\n")
+	_, _ = f.WriteString(`{"id": 5, "type": "edge", "label": "textDocument/definition", "outV": 3, "inV": 4}` + "\n")
 
 	for i := 10; i < 100010; i++ {
-		f.WriteString(func() string {
+		_, _ = f.WriteString(func() string {
 			return `{"id": ` + string(rune(i)) + `, "type": "vertex", "label": "range", "start": {"line": 1, "character": 5}, "end": {"line": 1, "character": 7}}` + "\n"
 		}())
 		// just dummy to write some lines, in real we would write correct JSON but for memory test it's fine

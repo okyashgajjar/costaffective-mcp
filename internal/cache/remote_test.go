@@ -34,16 +34,16 @@ func TestDownloadAndExtract(t *testing.T) {
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
 	f, _ := w.Create("test.txt")
-	f.Write([]byte("hello"))
+	_, _ = f.Write([]byte("hello"))
 	w.Close()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(buf.Bytes())
+		_, _ = w.Write(buf.Bytes())
 	}))
 	defer ts.Close()
 
 	tmpDir, _ := os.MkdirTemp("", "cache-test")
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	err := downloadAndExtract(context.Background(), ts.URL, "", tmpDir)
 	if err != nil {

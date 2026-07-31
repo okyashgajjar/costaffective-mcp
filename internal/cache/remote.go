@@ -134,7 +134,7 @@ func downloadAndExtract(ctx context.Context, url, token, destDir string) error {
 		return err
 	}
 
-	os.MkdirAll(destDir, 0755)
+	_ = os.MkdirAll(destDir, 0755)
 
 	for _, f := range zipReader.File {
 		fpath := filepath.Join(destDir, f.Name)
@@ -143,7 +143,7 @@ func downloadAndExtract(ctx context.Context, url, token, destDir string) error {
 		}
 
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(fpath, os.ModePerm)
+			_ = os.MkdirAll(fpath, os.ModePerm)
 			continue
 		}
 

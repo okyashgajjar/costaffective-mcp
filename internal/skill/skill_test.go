@@ -3,6 +3,7 @@ package skill
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -51,8 +52,14 @@ func TestInstallUninstallRoundTrip(t *testing.T) {
 	// Redirect HOME, XDG, and cwd so all targets land in temp dirs.
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", tmp)
+	}
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmp, ".config"))
-	t.Chdir(t.TempDir())
+	tmp2 := t.TempDir()
+	origWd, _ := os.Getwd()
+	os.Chdir(tmp2)
+	defer os.Chdir(origWd)
 
 	res, err := Install(ScopeBoth)
 	if err != nil {

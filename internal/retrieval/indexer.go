@@ -175,7 +175,7 @@ func (idx *SharedIndexer) Index(ctx context.Context) (*IndexResult, error) {
 			// Basic AST extraction for docstrings
 			docstrings := ""
 			// Removed sym.Doc as treesitter.Symbol doesn't support it yet.
-			idx.semantic.IndexFile(relPath, string(data), docstrings)
+			_ = idx.semantic.IndexFile(relPath, string(data), docstrings)
 		}
 
 		result.Changed++
@@ -203,7 +203,7 @@ func (idx *SharedIndexer) Index(ctx context.Context) (*IndexResult, error) {
 				return result, err
 			}
 			if idx.semantic != nil {
-				idx.semantic.RemoveFile(oldFile)
+				_ = idx.semantic.RemoveFile(oldFile)
 			}
 			result.Deleted++
 		}

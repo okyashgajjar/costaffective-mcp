@@ -95,7 +95,8 @@ func Parse(filepath string) (idx *Index, err error) {
 			continue // Skip malformed lines
 		}
 
-		if el.Type == "vertex" {
+		switch el.Type {
+		case "vertex":
 			switch el.Label {
 			case "document":
 				uri := strings.TrimPrefix(el.URI, "file://")
@@ -105,7 +106,7 @@ func Parse(filepath string) (idx *Index, err error) {
 					ranges[el.ID] = RangeData{Start: *el.Start, End: *el.End}
 				}
 			}
-		} else if el.Type == "edge" {
+		case "edge":
 			// We delay processing edges until all vertices are loaded
 			// To save memory, we only keep relevant edges
 			if el.Label == "contains" || el.Label == "next" || el.Label == "item" || el.Label == "textDocument/definition" || el.Label == "textDocument/references" {

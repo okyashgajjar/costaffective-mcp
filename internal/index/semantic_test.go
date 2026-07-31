@@ -11,7 +11,7 @@ func TestSemanticSearch_Synonyms(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	idx, err := NewSemanticIndexer(tmpDir)
 	if err != nil {
@@ -45,7 +45,7 @@ func TestSemanticIndex_HeavyLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	idx, err := NewSemanticIndexer(tmpDir)
 	if err != nil {
