@@ -73,6 +73,7 @@ func (r *AutoRetriever) Initialize(ctx context.Context, repo *repository.Reposit
 		"grep":         NewGrepRetriever(),
 		"architecture": NewArchitectureRetriever(),
 		"flowgraph":    NewFlowGraphRetriever(),
+		"semantic":     NewSemanticRetriever(),
 	}
 
 	for name, ret := range otherCandidates {
@@ -101,13 +102,13 @@ func (r *AutoRetriever) Retrieve(ctx context.Context, query string) ([]Retrieval
 		classifier.FlowQuery:         "flowgraph",
 	}
 	fallbackOrder := map[classifier.QueryClass][]string{
-		classifier.SymbolQuery:       {"grep"},
-		classifier.TextQuery:         {"treesitter"},
-		classifier.RepositoryQuery:   {"treesitter"},
-		classifier.ReferenceQuery:    {"treesitter", "grep"},
-		classifier.CallQuery:         {"treesitter", "reference"},
-		classifier.ArchitectureQuery: {"grep"},
-		classifier.FlowQuery:         {"callgraph", "treesitter"},
+		classifier.SymbolQuery:       {"semantic", "grep"},
+		classifier.TextQuery:         {"semantic", "treesitter"},
+		classifier.RepositoryQuery:   {"semantic", "treesitter"},
+		classifier.ReferenceQuery:    {"semantic", "treesitter", "grep"},
+		classifier.CallQuery:         {"semantic", "treesitter", "reference"},
+		classifier.ArchitectureQuery: {"semantic", "grep"},
+		classifier.FlowQuery:         {"semantic", "callgraph", "treesitter"},
 	}
 
 	primaryName := route[cl.Class]
@@ -135,7 +136,7 @@ func (r *AutoRetriever) Retrieve(ctx context.Context, query string) ([]Retrieval
 	}
 
 	if len(results) == 0 {
-		for _, name := range []string{"grep", "treesitter"} {
+		for _, name := range []string{"semantic", "grep", "treesitter"} {
 			if name == primaryName {
 				continue
 			}

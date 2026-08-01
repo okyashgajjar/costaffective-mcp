@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +12,32 @@ import (
 	"github.com/okyashgajjar/costwise-mcp/internal/installer"
 	_ "github.com/okyashgajjar/costwise-mcp/internal/installer/targets"
 )
+
+var testBinaryPath string
+
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "costwise-doctor-test")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create temp dir: %v\n", err)
+		os.Exit(1)
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	binName := "costwise_test"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	testBinaryPath = filepath.Join(dir, binName)
+
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", testBinaryPath, "../../cmd/costwise/")
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to build test binary: %v\n", err)
+		os.Exit(1)
+	}
+
+	os.Exit(m.Run())
+}
 
 func TestDoctorBinaryCheck_PASS(t *testing.T) {
 	binPath := buildTempBinary(t)
@@ -85,6 +112,11 @@ func TestDoctorMCPConfigs(t *testing.T) {
 	dir := t.TempDir()
 	origHome := os.Getenv("HOME")
 	os.Setenv("HOME", dir)
+	if runtime.GOOS == "windows" {
+		origUserProfile := os.Getenv("USERPROFILE")
+		os.Setenv("USERPROFILE", dir)
+		defer os.Setenv("USERPROFILE", origUserProfile)
+	}
 	defer os.Setenv("HOME", origHome)
 
 	// Install binary to the default path so config validation passes
@@ -144,6 +176,11 @@ func TestDoctorCodexRepairRoundTrip(t *testing.T) {
 	origHome := os.Getenv("HOME")
 	if err := os.Setenv("HOME", homeDir); err != nil {
 		t.Fatalf("set HOME: %v", err)
+	}
+	if runtime.GOOS == "windows" {
+		origUserProfile := os.Getenv("USERPROFILE")
+		os.Setenv("USERPROFILE", homeDir)
+		defer os.Setenv("USERPROFILE", origUserProfile)
 	}
 	defer os.Setenv("HOME", origHome)
 
@@ -246,10 +283,13 @@ func TestDoctorFinalStatus(t *testing.T) {
 
 func buildTempBinary(t *testing.T) string {
 	t.Helper()
+	if testBinaryPath != "" {
+		return testBinaryPath
+	}
 	dir := t.TempDir()
 	out := filepath.Join(dir, binaryNameForTest())
 
-	cmd := exec.Command("go", "build", "-o", out, "../../cmd/costwise/")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", out, "../../cmd/costwise/")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("build temp binary: %v", err)

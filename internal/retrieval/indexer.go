@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/okyashgajjar/costwise-mcp/internal/index"
 	"github.com/okyashgajjar/costwise-mcp/internal/treesitter"
 )
 
@@ -34,16 +35,26 @@ type IndexResult struct {
 // and supports incremental updates.
 type SharedIndexer struct {
 	db       *treesitter.SymbolDB
+	semantic *index.SemanticIndexer
 	repoRoot string
 	config   IndexConfig
 }
 
 // NewSharedIndexer creates a new SharedIndexer.
 func NewSharedIndexer(db *treesitter.SymbolDB, repoRoot string, cfg IndexConfig) *SharedIndexer {
+	semIdx, _ := index.NewSemanticIndexer(filepath.Join(repoRoot, ".mycli-fts"))
 	return &SharedIndexer{
 		db:       db,
+		semantic: semIdx,
 		repoRoot: repoRoot,
 		config:   cfg,
+	}
+}
+
+// Close releases resources.
+func (idx *SharedIndexer) Close() {
+	if idx.semantic != nil {
+		idx.semantic.Close()
 	}
 }
 
@@ -159,6 +170,14 @@ func (idx *SharedIndexer) Index(ctx context.Context) (*IndexResult, error) {
 		if err := idx.db.MarkFileIndexed(relPath, newHash); err != nil {
 			return err
 		}
+
+		if idx.semantic != nil {
+			// Basic AST extraction for docstrings
+			docstrings := ""
+			// Removed sym.Doc as treesitter.Symbol doesn't support it yet.
+			_ = idx.semantic.IndexFile(relPath, string(data), docstrings)
+		}
+
 		result.Changed++
 		return nil
 	})
@@ -182,6 +201,9 @@ func (idx *SharedIndexer) Index(ctx context.Context) (*IndexResult, error) {
 			// Remove from symbol_files tracking
 			if err := idx.db.MarkFileIndexed(oldFile, ""); err != nil {
 				return result, err
+			}
+			if idx.semantic != nil {
+				_ = idx.semantic.RemoveFile(oldFile)
 			}
 			result.Deleted++
 		}

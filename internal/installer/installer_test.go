@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 	}
 	testBinaryPath = filepath.Join(dir, binName)
 
-	cmd := exec.Command("go", "build", "-o", testBinaryPath, "../../cmd/costwise/")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", testBinaryPath, "../../cmd/costwise/")
 	if err := cmd.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to build test binary: %v\n", err)
 		os.Exit(1)
@@ -52,7 +52,7 @@ func tempBinary(t *testing.T) string {
 	dir := t.TempDir()
 	out := filepath.Join(dir, binaryNameForTest())
 
-	cmd := exec.Command("go", "build", "-o", out, "../../cmd/costwise/")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", out, "../../cmd/costwise/")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("build temp binary: %v", err)
@@ -102,8 +102,10 @@ func TestBinaryExecutable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fi.Mode()&0111 == 0 {
-		t.Fatal("binary should be executable")
+	if runtime.GOOS != "windows" {
+		if fi.Mode()&0111 == 0 {
+			t.Fatal("binary should be executable")
+		}
 	}
 
 	// Verify it runs
@@ -209,8 +211,8 @@ func TestTargetUsesAbsolutePath(t *testing.T) {
 func TestTildify(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	tilded := Tildify(filepath.Join(home, "test", "file"))
-	if !strings.HasPrefix(tilded, "~/") {
-		t.Fatalf("Tildify should produce ~/ prefix: %s", tilded)
+	if !strings.HasPrefix(tilded, "~/") && !strings.HasPrefix(tilded, "~\\") {
+		t.Fatalf("Tildify should produce ~/ or ~\\ prefix: %s", tilded)
 	}
 }
 
@@ -322,7 +324,11 @@ func TestDeepEqual(t *testing.T) {
 
 func TestCopyBinary(t *testing.T) {
 	src := tempBinary(t)
-	dst := filepath.Join(t.TempDir(), "costwise")
+	binName := "costwise"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	dst := filepath.Join(t.TempDir(), binName)
 
 	if err := copyBinary(src, dst); err != nil {
 		t.Fatalf("copyBinary should succeed: %v", err)
@@ -334,8 +340,10 @@ func TestCopyBinary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fi.Mode()&0111 == 0 {
-		t.Fatal("copied binary should be executable")
+	if runtime.GOOS != "windows" {
+		if fi.Mode()&0111 == 0 {
+			t.Fatal("copied binary should be executable")
+		}
 	}
 	if err := VerifyBinary(dst); err != nil {
 		t.Fatalf("copied binary should pass VerifyBinary: %v", err)
@@ -355,7 +363,11 @@ func TestCopyBinary_InvalidSrc(t *testing.T) {
 	if err := os.WriteFile(src, []byte("not an executable"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	dst := filepath.Join(dir, "costwise")
+	binName := "costwise"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	dst := filepath.Join(dir, binName)
 
 	err := copyBinary(src, dst)
 	if err == nil {
@@ -368,6 +380,11 @@ func TestEnsureBinary_UsesCurrentExecutable(t *testing.T) {
 	origHome := os.Getenv("HOME")
 	tempHome := t.TempDir()
 	os.Setenv("HOME", tempHome)
+	if runtime.GOOS == "windows" {
+		origUserProfile := os.Getenv("USERPROFILE")
+		os.Setenv("USERPROFILE", tempHome)
+		defer os.Setenv("USERPROFILE", origUserProfile)
+	}
 	defer os.Setenv("HOME", origHome)
 
 	// EnsureBinary with an empty default path should find the test runner
@@ -395,6 +412,11 @@ func TestEnsureBinary_AlreadyAtDefaultPath(t *testing.T) {
 	origHome := os.Getenv("HOME")
 	tempHome := t.TempDir()
 	os.Setenv("HOME", tempHome)
+	if runtime.GOOS == "windows" {
+		origUserProfile := os.Getenv("USERPROFILE")
+		os.Setenv("USERPROFILE", tempHome)
+		defer os.Setenv("USERPROFILE", origUserProfile)
+	}
 	defer os.Setenv("HOME", origHome)
 
 	// Place a valid binary at DefaultBinaryPath()
@@ -424,6 +446,11 @@ func TestEnsureBinary_NoBinaryFound(t *testing.T) {
 	origHome := os.Getenv("HOME")
 	tempHome := t.TempDir()
 	os.Setenv("HOME", tempHome)
+	if runtime.GOOS == "windows" {
+		origUserProfile := os.Getenv("USERPROFILE")
+		os.Setenv("USERPROFILE", tempHome)
+		defer os.Setenv("USERPROFILE", origUserProfile)
+	}
 	defer os.Setenv("HOME", origHome)
 
 	// Create a special subprocess scenario where os.Executable() returns
@@ -460,6 +487,11 @@ func TestEnsureBinary_NotBuildableWithoutGoMod(t *testing.T) {
 	origHome := os.Getenv("HOME")
 	tempHome := t.TempDir()
 	os.Setenv("HOME", tempHome)
+	if runtime.GOOS == "windows" {
+		origUserProfile := os.Getenv("USERPROFILE")
+		os.Setenv("USERPROFILE", tempHome)
+		defer os.Setenv("USERPROFILE", origUserProfile)
+	}
 	defer os.Setenv("HOME", origHome)
 
 	// Create a temp dir with no go.mod

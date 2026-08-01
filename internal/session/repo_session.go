@@ -10,6 +10,7 @@ import (
 	"github.com/okyashgajjar/costwise-mcp/internal/cache"
 	"github.com/okyashgajjar/costwise-mcp/internal/discovery_memory"
 	"github.com/okyashgajjar/costwise-mcp/internal/kmemory"
+	"github.com/okyashgajjar/costwise-mcp/internal/ledger"
 	"github.com/okyashgajjar/costwise-mcp/internal/repo_memory"
 	"github.com/okyashgajjar/costwise-mcp/internal/repository"
 	"github.com/okyashgajjar/costwise-mcp/internal/retrieval"
@@ -70,6 +71,10 @@ func newRepoSession(ctx context.Context, repoRoot string, sessionID string, shou
 			return nil, fmt.Errorf("failed to detect repository: %w", err)
 		}
 	}
+
+	// Attempt to fetch a pre-computed artifact from remote before local indexing starts.
+	// This runs fast and skips if a cache already exists locally.
+	_ = cache.AttemptRemoteFetch(ctx, info.Root)
 
 	db, err := treesitter.NewSymbolDB(info.Root)
 	if err != nil {
@@ -167,13 +172,24 @@ func (rs *RepoSession) RecallFacts(query string) []string {
 	return out
 }
 
-// Close releases all underlying resources.
 func (rs *RepoSession) Close() {
+	if rs.Indexer != nil {
+		rs.Indexer.Close()
+	}
 	if rs.DB != nil {
 		rs.DB.Close()
 	}
 	if rs.Cache != nil {
 		rs.Cache.Close()
+	}
+	if rs.RepoMem != nil {
+		rs.RepoMem.Close()
+	}
+	if rs.DiscMem != nil {
+		rs.DiscMem.Close()
+	}
+	if rs.Repo != nil && rs.Repo.Root != "" {
+		ledger.Close(rs.Repo.Root)
 	}
 }
 

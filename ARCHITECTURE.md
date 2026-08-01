@@ -5,7 +5,7 @@
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │  CLI (cmd/costwise)                                              │
-│  serve | install | uninstall | doctor | skill | chat | plan     │
+│  serve | install | uninstall | doctor | skill | chat | plan | validate│
 └─────────────────────┬────────────────────────────────────────────┘
                       │ stdio
 ┌─────────────────────▼────────────────────────────────────────────┐
@@ -30,6 +30,8 @@
 │ find_call  │ │               │ │ on every event    │
 │ repo_summary│ │               │ │                   │
 │ index_repo │ │               │ │                   │
+│ validate_  │ │               │ │                   │
+│ architecture││               │ │                   │
 └───┬────────┘ └───────┬───────┘ └───────────────────┘
     │                  │
     │           ┌──────▼──────┐
@@ -88,7 +90,7 @@ searchCodeHandler()
   │   └─ classifier.Classify(query)     — SymbolQuery / TextQuery / RepoQuery / ReferenceQuery / CallQuery / ArchitectureQuery / FlowQuery
   │   └─ routes to primary retriever:
   │       ├─ SymbolQuery       → treesitter (SymbolRetriever)
-  │       ├─ TextQuery         → fts (FTSRetriever)
+  │       ├─ TextQuery         → semantic (SemanticRetriever via Bluge)
   │       ├─ RepositoryQuery   → grep (GrepRetriever)
   │       ├─ ReferenceQuery    → reference (ReferenceRetriever)
   │       ├─ CallQuery         → callgraph (CallGraphRetriever)
@@ -253,9 +255,9 @@ Response to AI client: `internal/service/user.go:42`
 
 | Store | Location | Format | Purpose |
 |-------|----------|--------|---------|
-| Symbol index | `.mycli-fts/symbols_*.db` | SQLite (tree-sitter) | Definitions, references, call edges |
-| FTS index | `.mycli-fts/fts_*.db` | SQLite | Full-text search |
-| LRU cache | `.mycli-fts/cache*.db` | SQLite | Recent lookups |
+| Symbol index | `.mycli-fts/symbols_*.db` | SQLite (tree-sitter) | Definitions, references, call edges (with LSIF fallback) |
+| Semantic index | `.mycli-fts/semantic/` | Bluge | Fuzzy semantic matching and BM25 text search |
+| LRU cache | `.mycli-fts/cache*.db` | SQLite / Postgres | Recent lookups (supports COSTWISE_PG_URL for Team Cache) |
 | Stash blobs | `.mycli-fts/stash/<handle>.txt` | Plain text | Large content parked out of context |
 | Stash manifest | `.mycli-fts/stash/manifest.json` | JSON | Metadata for stashed blobs |
 | Session facts | `.mycli-fts/session_facts.json` | JSON | Durable user facts (remember tool) |

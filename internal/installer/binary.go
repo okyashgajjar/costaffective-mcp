@@ -108,7 +108,11 @@ func CheckBinary() BinaryCheckResult {
 		r.Exists = true
 		fi, err := os.Stat(path)
 		if err == nil {
-			r.Executable = (fi.Mode()&0111 != 0)
+			if runtime.GOOS == "windows" {
+				r.Executable = true
+			} else {
+				r.Executable = (fi.Mode()&0111 != 0)
+			}
 		}
 		r.Version = getBinaryVersion(path)
 		break
@@ -190,7 +194,7 @@ func VerifyBinary(binaryPath string) error {
 			Action:  "Check file permissions and ownership, then rerun: costwise install --repair",
 		}
 	}
-	if fi.Mode()&0111 == 0 {
+	if runtime.GOOS != "windows" && fi.Mode()&0111 == 0 {
 		return ActionableError{
 			Message: fmt.Sprintf("%s exists but is not executable.", binaryPath),
 			Action:  fmt.Sprintf("Run: chmod +x %s\nor rerun: costwise install --repair", binaryPath),

@@ -15,6 +15,10 @@ The CostWise MCP server (`costwise serve`) provides 7 retrieval and maintenance 
 | `find_callers` | Find functions that call a given function |
 | `get_repository_summary` | High-level repo overview (modules, files, languages) |
 | `index_repository` | Trigger re-indexing of the codebase |
+| `stash_context` | Park a large blob out of context behind a tiny handle |
+| `recall` | Pull back only the slice that matches a query |
+| `remember` | Persist a fact once instead of repeating it inline |
+| `validate_architecture` | Enforce AST-based layer boundaries |
 
 No API key is required — this is a pure retrieval server with no LLM dependency.
 
@@ -79,12 +83,13 @@ AI Client (MCP Host)
     │
     ├── stdio transport ──► costwise serve (MCP Server)
     │                           │
-    │                           ├── search_code ───────────► tree-sitter AST match
+    │                           ├── search_code ───────────► Bluge / tree-sitter AST match
     │                           ├── find_symbol ───────────► SymbolDB lookup
     │                           ├── find_references ───────► SymbolDB reference search
     │                           ├── find_callers ──────────► SymbolDB call graph
     │                           ├── get_repository_summary ► KnowledgeStore
-    │                           └── index_repository ──────► SharedIndexer
+    │                           ├── validate_architecture ─► PolicyEngine (costwise-architecture.yaml)
+    │                           └── context-tools ─────────► Stash, Facts, and Ledger
 ```
 
 ## Troubleshooting

@@ -1,0 +1,33 @@
+name: CostWise Remote Indexer
+
+on:
+  workflow_call:
+  schedule:
+    - cron: '0 0 * * *' # Run nightly
+
+jobs:
+  precompute-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install costwise CLI
+        run: |
+          go install github.com/okyashgajjar/costwise-mcp/cmd/costwise@latest
+
+      - name: Generate Cache
+        run: |
+          costwise index --headless
+          
+      - name: Upload Index Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: costwise-cache
+          path: .mycli-fts/
+          retention-days: 5
