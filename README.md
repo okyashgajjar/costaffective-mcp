@@ -772,6 +772,16 @@ Pre-built release binaries are available for Linux amd64 and Windows amd64. All 
 
 ---
 
+## Contributors
+
+Thanks to everyone who has contributed to CostWise:
+
+<a href="https://github.com/okyashgajjar/costwise-mcp/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=okyashgajjar/costwise-mcp" alt="Contributors" />
+</a>
+
+---
+
 ## License
 
 MIT
@@ -783,13 +793,3 @@ MIT
   <br>
   <sub><strong>Save tokens. Buy Coffee.</strong></sub>
 </div>
-
----
-
-## Contributors
-
-Thanks to everyone who has contributed to CostWise:
-
-<a href="https://github.com/okyashgajjar/costwise-mcp/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=okyashgajjar/costwise-mcp" alt="Contributors" />
-</a>
