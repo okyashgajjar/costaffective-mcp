@@ -637,6 +637,19 @@ Don't know where to start? Open an issue asking for guidance.
 </details>
 
 <details>
+<summary><strong>Contributors</strong></summary>
+
+<br>
+
+Thanks to everyone who has contributed to CostWise:
+
+<a href="https://github.com/okyashgajjar/costwise-mcp/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=okyashgajjar/costwise-mcp" alt="Contributors" />
+</a>
+
+</details>
+
+<details>
 <summary><strong>Development</strong></summary>
 
 <br>
