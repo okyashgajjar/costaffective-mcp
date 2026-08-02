@@ -780,12 +780,6 @@ Thanks to everyone who has contributed to CostWise:
   <img src="https://contrib.rocks/image?repo=okyashgajjar/costwise-mcp" alt="Contributors" />
 </a>
 
-<br>
-
-<a href="https://github.com/okyashgajjar/costwise-mcp/graphs/contributors">
-  <img src="https://github-readme-activity-graph.vercel.app/graph?username=okyashgajjar&theme=react-dark&hide_border=true&radius=10" alt="Contribution graph" />
-</a>
-
 ---
 
 ## License
