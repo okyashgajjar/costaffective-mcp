@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/okyashgajjar/costwise-mcp/internal/index"
+	"github.com/okyashgajjar/costwise-mcp/internal/ontology"
 	"github.com/okyashgajjar/costwise-mcp/internal/treesitter"
+	"os/exec"
 )
 
 // IndexConfig controls which parse stages the SharedIndexer runs.
@@ -132,6 +134,23 @@ func (idx *SharedIndexer) Index(ctx context.Context) (*IndexResult, error) {
 					if err := idx.db.StoreSymbols(symbols); err != nil {
 						return err
 					}
+					
+					var allTags []treesitter.InsertOntologyTagParams
+					for _, sym := range symbols {
+						tags := ontology.AnalyzeSymbol(sym)
+						id := treesitter.SymbolID(sym.Name, string(sym.Kind), sym.File, sym.StartLine)
+						for _, t := range tags {
+							allTags = append(allTags, treesitter.InsertOntologyTagParams{
+								SymbolID: id,
+								Tag:      t.Concept,
+								Domain:   t.Domain,
+								File:     sym.File,
+							})
+						}
+					}
+					if len(allTags) > 0 {
+						_ = idx.db.StoreOntologyTags(allTags)
+					}
 				}
 			}
 		}
@@ -210,7 +229,21 @@ func (idx *SharedIndexer) Index(ctx context.Context) (*IndexResult, error) {
 	}
 
 	result.LatencyMs = time.Since(start).Milliseconds()
+
+	// SCIP Generation integration
+	if isGoRepo(idx.repoRoot) {
+		scipPath := filepath.Join(idx.repoRoot, ".mycli-fts", "index.scip")
+		cmd := exec.Command("scip-go", "--output", scipPath)
+		cmd.Dir = idx.repoRoot
+		_ = cmd.Run() // Best effort, ignore errors if scip-go is missing or fails
+	}
+
 	return result, nil
+}
+
+func isGoRepo(repoRoot string) bool {
+	_, err := os.Stat(filepath.Join(repoRoot, "go.mod"))
+	return err == nil
 }
 
 // DB returns the underlying SymbolDB for reuse by retrievers.

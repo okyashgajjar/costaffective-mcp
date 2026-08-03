@@ -156,9 +156,7 @@ func (wd *Watchdog) triggerReindex(changedPath string) {
 		for _, f := range files {
 			relFiles = append(relFiles, strings.TrimPrefix(f, root+string(os.PathSeparator)))
 		}
-		if err := ledger.Append(wd.repoSession.Repo.Root, ledger.Event{
-			Kind:         "watch",
-			Action:       "auto_reindex",
+		if err := ledger.AppendTyped(wd.repoSession.Repo.Root, ledger.WatchAutoReindexEvent{
 			ChangedFiles: relFiles,
 		}); err != nil {
 			log.Printf("ledger: append error: %v", err)

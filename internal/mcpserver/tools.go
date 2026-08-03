@@ -12,6 +12,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/okyashgajjar/costwise-mcp/internal/answertype"
+	"github.com/okyashgajjar/costwise-mcp/internal/impact"
 	"github.com/okyashgajjar/costwise-mcp/internal/ledger"
 	"github.com/okyashgajjar/costwise-mcp/internal/policy"
 	"github.com/okyashgajjar/costwise-mcp/internal/repository"
@@ -106,6 +107,14 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithString("label", mcp.Description("Optional short label describing the content")),
 	), withRecovery(stashContextHandler))
 
+	// query_ontology
+	s.AddTool(mcp.NewTool("query_ontology",
+		mcp.WithDescription("Query the repository conceptually. Find code elements by semantic role (e.g. 'Handler', 'Storage', 'Service', 'TYPE_DECL', 'METHOD') or domain (e.g. 'billing', 'auth')."),
+		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
+		mcp.WithString("concept", mcp.Required(), mcp.Description("The architectural concept to search for (e.g. Storage, Handler, Service, Event, TYPE_DECL, METHOD)")),
+		mcp.WithString("domain", mcp.Description("Optional domain filter (e.g. billing, core, auth)")),
+	), withRecovery(queryOntologyHandler))
+
 	// recall — query-scoped read of remembered facts and stashed blobs.
 	s.AddTool(mcp.NewTool("recall",
 		mcp.WithDescription("Take back ONLY what you need: returns the budgeted slice of a stashed blob (by handle) or matching remembered facts, instead of the whole thing. With no `source`, lists matching facts and stash handles."),
@@ -135,6 +144,13 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithDescription("Validate the repository against its .costwise.yaml policy, checking for required/denied architectural patterns."),
 		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
 	), withRecovery(validateCodeHandler))
+
+	// analyze_impact
+	s.AddTool(mcp.NewTool("analyze_impact",
+		mcp.WithDescription("Analyze the blast radius of changing a specific symbol by tracing callers and callees."),
+		mcp.WithString("repo_path", mcp.Required(), mcp.Description("Absolute path to the repository root")),
+		mcp.WithString("symbol", mcp.Required(), mcp.Description("Symbol name to analyze")),
+	), withRecovery(analyzeImpactHandler))
 }
 
 func getStringArg(args interface{}, key string) string {
@@ -456,9 +472,7 @@ func indexRepoHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 		return mcp.NewToolResultError(fmt.Sprintf("Indexing failed: %v", err)), nil
 	}
 
-	if err := ledger.Append(repoPath, ledger.Event{
-		Kind:    "index",
-		Action:  "reindex",
+	if err := ledger.AppendTyped(repoPath, ledger.IndexEvent{
 		Files:   result.Changed,
 		Trigger: "manual",
 	}); err != nil {
@@ -494,9 +508,7 @@ func rememberHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Cal
 	if len([]rune(summary)) > 200 {
 		summary = string([]rune(summary)[:200])
 	}
-	if err := ledger.Append(repoPath, ledger.Event{
-		Kind:    "fact",
-		Action:  "add",
+	if err := ledger.AppendTyped(repoPath, ledger.FactAddEvent{
 		Summary: summary,
 	}); err != nil {
 		log.Printf("ledger: append error: %v", err)
@@ -537,9 +549,7 @@ func stashContextHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 			summary = string(r)
 		}
 	}
-	if err := ledger.Append(repoPath, ledger.Event{
-		Kind:    "stash",
-		Action:  "create",
+	if err := ledger.AppendTyped(repoPath, ledger.StashCreateEvent{
 		Handle:  e.Handle,
 		Tokens:  e.Tokens,
 		Summary: summary,
@@ -579,9 +589,7 @@ func recallHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		if err := ledger.Append(repoPath, ledger.Event{
-			Kind:   "recall",
-			Action: "read",
+		if err := ledger.AppendTyped(repoPath, ledger.RecallReadEvent{
 			Query:  query,
 			Source: source,
 		}); err != nil {
@@ -613,9 +621,7 @@ func recallHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 		}
 	}
 
-	if err := ledger.Append(repoPath, ledger.Event{
-		Kind:   "recall",
-		Action: "read",
+	if err := ledger.AppendTyped(repoPath, ledger.RecallReadEvent{
 		Query:  query,
 		Source: source,
 	}); err != nil {
@@ -770,4 +776,96 @@ func validateCodeHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	}
 	fmt.Fprintf(&b, "\nTotal Violations: %d\n", totalViolations)
 	return mcp.NewToolResultText(b.String()), nil
+}
+
+func analyzeImpactHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	repoPath := getStringArg(request.Params.Arguments, "repo_path")
+	symbol := getStringArg(request.Params.Arguments, "symbol")
+
+	if repoPath == "" || symbol == "" {
+		return mcp.NewToolResultError("repo_path and symbol are required"), nil
+	}
+
+	rs, err := GetOrCreateRepoSession(ctx, repoPath)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	analysis, err := impact.Analyze(rs.DB, symbol)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Impact analysis failed: %v", err)), nil
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Impact Analysis for %q\n", analysis.SymbolName)
+	fmt.Fprintf(&b, "Complexity: %s\n", analysis.Complexity)
+	
+	if len(analysis.DirectReferences) > 0 {
+		fmt.Fprintf(&b, "\nDirect References (%d):\n", len(analysis.DirectReferences))
+		for i, ref := range analysis.DirectReferences {
+			if i >= 5 {
+				fmt.Fprintf(&b, "  ... and %d more\n", len(analysis.DirectReferences)-5)
+				break
+			}
+			fmt.Fprintf(&b, "  - %s:%d (Type: %s)\n", ref.File, ref.Line, ref.RefType)
+		}
+	}
+
+	if len(analysis.Callers) > 0 {
+		fmt.Fprintf(&b, "\nCallers (%d):\n", len(analysis.Callers))
+		for i, call := range analysis.Callers {
+			if i >= 5 {
+				fmt.Fprintf(&b, "  ... and %d more\n", len(analysis.Callers)-5)
+				break
+			}
+			fmt.Fprintf(&b, "  - %s (in %s:%d)\n", call.CallerName, call.CallerFile, call.Line)
+		}
+	}
+
+	if len(analysis.Callees) > 0 {
+		fmt.Fprintf(&b, "\nCallees (%d):\n", len(analysis.Callees))
+		for i, call := range analysis.Callees {
+			if i >= 5 {
+				fmt.Fprintf(&b, "  ... and %d more\n", len(analysis.Callees)-5)
+				break
+			}
+			fmt.Fprintf(&b, "  - %s (in %s:%d)\n", call.CalleeName, call.File, call.Line)
+		}
+	}
+
+	return mcp.NewToolResultText(b.String()), nil
+}
+
+func queryOntologyHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	repoPath := getStringArg(request.Params.Arguments, "repo_path")
+	if repoPath == "" {
+		return mcp.NewToolResultError("repo_path is required"), nil
+	}
+	concept := getStringArg(request.Params.Arguments, "concept")
+	if concept == "" {
+		return mcp.NewToolResultError("concept is required"), nil
+	}
+	domain := getStringArg(request.Params.Arguments, "domain")
+
+	rs, err := GetOrCreateRepoSession(ctx, repoPath)
+	if err != nil || rs == nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get session for %s: %v", repoPath, err)), nil
+	}
+
+	matches, err := rs.DB.SearchOntology(concept, domain)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Search failed: %v", err)), nil
+	}
+
+	if len(matches) == 0 {
+		return mcp.NewToolResultText("No matches found in the ontology."), nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Found %d matches for concept='%s' domain='%s':\n\n", len(matches), concept, domain))
+	for _, m := range matches {
+		sb.WriteString(fmt.Sprintf("- %s %s in %s:%d\n  %s\n", m.Symbol.Kind, m.Symbol.Name, m.Symbol.File, m.Symbol.StartLine, m.Symbol.Signature))
+	}
+
+	return mcp.NewToolResultText(sb.String()), nil
 }
