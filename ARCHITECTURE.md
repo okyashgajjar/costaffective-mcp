@@ -32,6 +32,10 @@
 │ index_repo │ │               │ │                   │
 │ validate_  │ │               │ │                   │
 │ architecture││               │ │                   │
+│ query_      │ │               │ │                   │
+│ ontology    │ │               │ │                   │
+│ analyze_    │ │               │ │                   │
+│ impact      │ │               │ │                   │
 └───┬────────┘ └───────┬───────┘ └───────────────────┘
     │                  │
     │           ┌──────▼──────┐
@@ -115,6 +119,8 @@ searchCodeHandler()
 | `read_symbol` | `readSymbolHandler` | `NewSymbolRetriever()` + reads line range from file | raw body |
 | `find_references` | `findReferencesHandler` | `NewReferenceRetriever()` | `compressReference` |
 | `find_callers` | `findCallersHandler` | `NewCallGraphRetriever()` | `compressCaller` |
+| `query_ontology` | `queryOntologyHandler` | Tag queries via `OntologyDB` | custom results |
+| `analyze_impact` | `analyzeImpactHandler` | Recursive `impact.Analyze()` | causality graph output |
 | `get_repository_summary` | `repoSummaryHandler` | `BuildRepositorySummaryCompact(ks, budget, module)` | budget-capped summary |
 | `index_repository` | `indexRepoHandler` | `rs.Indexer.Index()` | status report |
 

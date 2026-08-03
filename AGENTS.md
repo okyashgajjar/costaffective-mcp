@@ -19,6 +19,12 @@ Three steps:
 4. **Shared Team Cache**: Remote Postgres adapter supporting `COSTWISE_PG_URL` for shared stash and facts memory.
 5. **Policy Engine**: Centralized AST-based architecture checking (`costwise-architecture.yaml`) enforced by the `costwise validate` command and `validate_architecture` MCP tool.
 
+## V4 Code Ontology & Causality (Completed)
+
+1. **Code Ontology Engine**: A flat semantic tagging engine (`internal/ontology/tagger.go`) that labels AST nodes (e.g., `IsCore`, `IsInterface`, `IsTest`). Exposed via the `query_ontology` MCP tool.
+2. **Causality Impact Analysis**: Recursive graph traversal to identify downstream ripples of a change using reference and call edge datasets. Exposed via the `analyze_impact` MCP tool.
+3. **Ponytail Cleanups**: Aggressive pruning of over-engineered components. Deleted unused LLM response compression layers (`compress_response.go`) and minimized pattern matching loops via helpers.
+
 **LANDMINE:** `repo_memory`/`discovery_memory` Init with shared `os.TempDir()` paths (NOT per-repo) — a clobber risk (same class as the shared-index bug). New V2 stores MUST be per-repo (derive from `repoRoot` like `treesitter.NewSymbolDB`/`cache.NewCache`).
 
 **Honest limit:** these tools can't evict content the client already placed in context; they only help when the model *routes new large content through them* — which is what the step-3 skill enforces. MCP server-side state persists across tool calls via a process-global per-repo `SessionCache` (`internal/mcpserver/session_cache.go`).

@@ -195,6 +195,8 @@ CostWise provides **10 MCP tools** that fall into three categories.
 - `read_symbol` — return a symbol's full implementation body.
 - `find_references` — every usage of a symbol, precomputed.
 - `find_callers` — which functions call a given function.
+- `query_ontology` — filter symbols across the repo by semantic tags like `IsCore`, `IsTest`, `IsInterface`.
+- `analyze_impact` — recursively trace references and call edges to determine the downstream blast radius of a change.
 
 **Maintenance tools** keep the index in sync:
 
@@ -255,6 +257,22 @@ Find which functions call another function.
 *Why:* understanding a call chain should read from stored call edges, not from the model reconstructing it by reading callers' files.
 
 > Example: `What calls processPayment()?`
+
+#### query_ontology
+
+Filter the codebase using semantic tags (e.g. `IsCore`, `IsTest`, `IsInterface`, `IsEntrypoint`) derived from AST properties.
+
+*Why:* finding all abstract interfaces or skipping tests requires an understanding of the code's ontological role without heavy syntax grepping.
+
+> Example: `Find all IsInterface in internal/session`
+
+#### analyze_impact
+
+Generates a blast-radius causality graph showing all transitive downstream effects of changing a particular symbol.
+
+*Why:* "What breaks if I change X?" shouldn't require manual chaining of find_references and find_callers by the LLM.
+
+> Example: `Analyze impact of changing SearchCode`
 
 *Note:* `search_code` already routes an exact-text/full-text strategy internally, so a literal match is covered without a separate tool. For raw regex over files, use the host's native file search.
 

@@ -13,6 +13,8 @@ The CostWise MCP server (`costwise serve`) provides 7 retrieval and maintenance 
 | `read_symbol` | Return a symbol's full implementation body by name |
 | `find_references` | Find all references to a symbol |
 | `find_callers` | Find functions that call a given function |
+| `query_ontology` | Filter the repository AST by semantic tags like IsCore |
+| `analyze_impact` | Generate a causality graph to trace the blast radius of a change |
 | `get_repository_summary` | High-level repo overview (modules, files, languages) |
 | `index_repository` | Trigger re-indexing of the codebase |
 | `stash_context` | Park a large blob out of context behind a tiny handle |
@@ -87,6 +89,8 @@ AI Client (MCP Host)
     │                           ├── find_symbol ───────────► SymbolDB lookup
     │                           ├── find_references ───────► SymbolDB reference search
     │                           ├── find_callers ──────────► SymbolDB call graph
+    │                           ├── query_ontology ────────► Ontology tag matching
+    │                           ├── analyze_impact ────────► Recursive causality graph traversal
     │                           ├── get_repository_summary ► KnowledgeStore
     │                           ├── validate_architecture ─► PolicyEngine (costwise-architecture.yaml)
     │                           └── context-tools ─────────► Stash, Facts, and Ledger
