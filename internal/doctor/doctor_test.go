@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -8,9 +9,35 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/okyashgajjar/costaffective-mcp/internal/installer"
-	_ "github.com/okyashgajjar/costaffective-mcp/internal/installer/targets"
+	"github.com/okyashgajjar/costwise-mcp/internal/installer"
+	_ "github.com/okyashgajjar/costwise-mcp/internal/installer/targets"
 )
+
+var testBinaryPath string
+
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "costwise-doctor-test")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create temp dir: %v\n", err)
+		os.Exit(1)
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	binName := "costwise_test"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	testBinaryPath = filepath.Join(dir, binName)
+
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", testBinaryPath, "../../cmd/costwise/")
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to build test binary: %v\n", err)
+		os.Exit(1)
+	}
+
+	os.Exit(m.Run())
+}
 
 func TestDoctorBinaryCheck_PASS(t *testing.T) {
 	binPath := buildTempBinary(t)
@@ -39,7 +66,7 @@ func TestDoctorBinaryCheck_PASS(t *testing.T) {
 
 func TestDoctorBinaryCheck_verifyNonexistent(t *testing.T) {
 	// Test that VerifyBinary produces proper error for nonexistent path
-	err := installer.VerifyBinary("/nonexistent/costaffective")
+	err := installer.VerifyBinary("/nonexistent/costwise")
 	if err == nil {
 		t.Fatal("VerifyBinary should fail for nonexistent path")
 	}
@@ -85,6 +112,11 @@ func TestDoctorMCPConfigs(t *testing.T) {
 	dir := t.TempDir()
 	origHome := os.Getenv("HOME")
 	os.Setenv("HOME", dir)
+	if runtime.GOOS == "windows" {
+		origUserProfile := os.Getenv("USERPROFILE")
+		os.Setenv("USERPROFILE", dir)
+		defer os.Setenv("USERPROFILE", origUserProfile)
+	}
 	defer os.Setenv("HOME", origHome)
 
 	// Install binary to the default path so config validation passes
@@ -106,7 +138,7 @@ func TestDoctorMCPConfigs(t *testing.T) {
 	}
 	cursorConfig := map[string]interface{}{
 		"mcpServers": map[string]interface{}{
-			"costaffective": map[string]interface{}{
+			"costwise": map[string]interface{}{
 				"command": defaultBin,
 				"args":    []string{"serve"},
 				"type":    "stdio",
@@ -145,6 +177,11 @@ func TestDoctorCodexRepairRoundTrip(t *testing.T) {
 	if err := os.Setenv("HOME", homeDir); err != nil {
 		t.Fatalf("set HOME: %v", err)
 	}
+	if runtime.GOOS == "windows" {
+		origUserProfile := os.Getenv("USERPROFILE")
+		os.Setenv("USERPROFILE", homeDir)
+		defer os.Setenv("USERPROFILE", origUserProfile)
+	}
 	defer os.Setenv("HOME", origHome)
 
 	defaultBin := installer.DefaultBinaryPath()
@@ -178,7 +215,7 @@ func TestDoctorCodexRepairRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read codex config: %v", err)
 	}
-	if !strings.Contains(string(content), "[mcp_servers.costaffective]") {
+	if !strings.Contains(string(content), "[mcp_servers.costwise]") {
 		t.Fatalf("codex config missing MCP entry: %s", string(content))
 	}
 	if !strings.Contains(string(content), defaultBin) {
@@ -246,10 +283,13 @@ func TestDoctorFinalStatus(t *testing.T) {
 
 func buildTempBinary(t *testing.T) string {
 	t.Helper()
+	if testBinaryPath != "" {
+		return testBinaryPath
+	}
 	dir := t.TempDir()
 	out := filepath.Join(dir, binaryNameForTest())
 
-	cmd := exec.Command("go", "build", "-o", out, "../../cmd/costaffective/")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", out, "../../cmd/costwise/")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("build temp binary: %v", err)
@@ -259,7 +299,7 @@ func buildTempBinary(t *testing.T) string {
 
 func binaryNameForTest() string {
 	if runtime.GOOS == "windows" {
-		return "costaffective_test.exe"
+		return "costwise_test.exe"
 	}
-	return "costaffective_test"
+	return "costwise_test"
 }

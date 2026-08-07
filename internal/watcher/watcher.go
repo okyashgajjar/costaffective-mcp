@@ -11,17 +11,21 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/okyashgajjar/costaffective-mcp/internal/cache"
-	"github.com/okyashgajjar/costaffective-mcp/internal/session"
+	"github.com/okyashgajjar/costwise-mcp/internal/cache"
+	"github.com/okyashgajjar/costwise-mcp/internal/ledger"
+	"github.com/okyashgajjar/costwise-mcp/internal/session"
 )
 
+const maxChangedFiles = 10
+
 type Watchdog struct {
-	repoSession *session.RepoSession
-	watcher     *fsnotify.Watcher
-	ctx         context.Context
-	cancel      context.CancelFunc
-	mu          sync.Mutex
-	timer       *time.Timer
+	repoSession  *session.RepoSession
+	watcher      *fsnotify.Watcher
+	ctx          context.Context
+	cancel       context.CancelFunc
+	mu           sync.Mutex
+	timer        *time.Timer
+	changedFiles []string
 }
 
 func NewWatchdog(rs *session.RepoSession) (*Watchdog, error) {
@@ -49,7 +53,7 @@ func (wd *Watchdog) Start() error {
 		}
 		if info.IsDir() {
 			base := filepath.Base(path)
-			if base == ".git" || base == "node_modules" || base == "vendor" || base == ".codegraph" {
+			if base == ".git" || base == "node_modules" || base == "vendor" || base == ".codegraph" || base == ".mycli-fts" {
 				return filepath.SkipDir
 			}
 			_ = wd.watcher.Add(path)
@@ -66,6 +70,11 @@ func (wd *Watchdog) Start() error {
 }
 
 func (wd *Watchdog) watchLoop() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Panic recovered in watchLoop: %v", r)
+		}
+	}()
 	defer wd.watcher.Close()
 
 	for {
@@ -90,7 +99,7 @@ func (wd *Watchdog) watchLoop() {
 			}
 
 			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
-				wd.triggerReindex()
+				wd.triggerReindex(event.Name)
 			}
 		case err, ok := <-wd.watcher.Errors:
 			if !ok {
@@ -101,17 +110,34 @@ func (wd *Watchdog) watchLoop() {
 	}
 }
 
-func (wd *Watchdog) triggerReindex() {
+func (wd *Watchdog) triggerReindex(changedPath string) {
 	wd.mu.Lock()
 	defer wd.mu.Unlock()
+
+	// Collect changed paths up to the cap
+	if len(wd.changedFiles) < maxChangedFiles {
+		wd.changedFiles = append(wd.changedFiles, changedPath)
+	}
 
 	if wd.timer != nil {
 		wd.timer.Stop()
 	}
 
 	wd.timer = time.AfterFunc(1000*time.Millisecond, func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("Panic recovered in watchdog incremental reindex timer: %v", r)
+			}
+		}()
+
+		wd.mu.Lock()
+		files := wd.changedFiles
+		wd.changedFiles = nil
+		wd.mu.Unlock()
+
 		log.Println("Watchdog: changes detected, starting incremental reindex...")
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
 		result, err := wd.repoSession.Indexer.Index(ctx)
 		if err != nil {
 			log.Printf("Watchdog: failed to reindex: %v", err)
@@ -120,11 +146,20 @@ func (wd *Watchdog) triggerReindex() {
 		if result.Changed > 0 || result.Deleted > 0 {
 			log.Printf("Watchdog: reindex complete (Changed: %d, Skipped: %d, Deleted: %d, Total: %d)", result.Changed, result.Skipped, result.Deleted, result.Total)
 			if wd.repoSession.Cache != nil {
-				// Invalidate the cache for this repository
 				repoHash := cache.RepoHash(wd.repoSession.Repo.Root)
 				wd.repoSession.Cache.Invalidate(repoHash)
 				log.Println("Watchdog: cache invalidated")
 			}
+		}
+		relFiles := make([]string, 0, len(files))
+		root := wd.repoSession.Repo.Root
+		for _, f := range files {
+			relFiles = append(relFiles, strings.TrimPrefix(f, root+string(os.PathSeparator)))
+		}
+		if err := ledger.AppendTyped(wd.repoSession.Repo.Root, ledger.WatchAutoReindexEvent{
+			ChangedFiles: relFiles,
+		}); err != nil {
+			log.Printf("ledger: append error: %v", err)
 		}
 	})
 }

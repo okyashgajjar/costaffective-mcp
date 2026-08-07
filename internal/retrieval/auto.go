@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/okyashgajjar/costaffective-mcp/internal/classifier"
-	"github.com/okyashgajjar/costaffective-mcp/internal/kmemory"
-	"github.com/okyashgajjar/costaffective-mcp/internal/repository"
-	"github.com/okyashgajjar/costaffective-mcp/internal/treesitter"
+	"github.com/okyashgajjar/costwise-mcp/internal/classifier"
+	"github.com/okyashgajjar/costwise-mcp/internal/kmemory"
+	"github.com/okyashgajjar/costwise-mcp/internal/repository"
+	"github.com/okyashgajjar/costwise-mcp/internal/treesitter"
 )
 
 type AutoRetriever struct {
@@ -71,9 +71,9 @@ func (r *AutoRetriever) Initialize(ctx context.Context, repo *repository.Reposit
 	// Non-symbol retrievers still initialize normally
 	otherCandidates := map[string]Retriever{
 		"grep":         NewGrepRetriever(),
-		"fts":          NewFTSRetriever(r.storageDir),
 		"architecture": NewArchitectureRetriever(),
 		"flowgraph":    NewFlowGraphRetriever(),
+		"semantic":     NewSemanticRetriever(),
 	}
 
 	for name, ret := range otherCandidates {
@@ -94,7 +94,7 @@ func (r *AutoRetriever) Retrieve(ctx context.Context, query string) ([]Retrieval
 
 	route := map[classifier.QueryClass]string{
 		classifier.SymbolQuery:       "treesitter",
-		classifier.TextQuery:         "fts",
+		classifier.TextQuery:         "grep",
 		classifier.RepositoryQuery:   "grep",
 		classifier.ReferenceQuery:    "reference",
 		classifier.CallQuery:         "callgraph",
@@ -102,13 +102,13 @@ func (r *AutoRetriever) Retrieve(ctx context.Context, query string) ([]Retrieval
 		classifier.FlowQuery:         "flowgraph",
 	}
 	fallbackOrder := map[classifier.QueryClass][]string{
-		classifier.SymbolQuery:       {"fts", "grep"},
-		classifier.TextQuery:         {"grep", "treesitter"},
-		classifier.RepositoryQuery:   {"fts", "treesitter"},
-		classifier.ReferenceQuery:    {"treesitter", "grep"},
-		classifier.CallQuery:         {"treesitter", "reference"},
-		classifier.ArchitectureQuery: {"grep", "fts"},
-		classifier.FlowQuery:         {"callgraph", "treesitter"},
+		classifier.SymbolQuery:       {"semantic", "grep"},
+		classifier.TextQuery:         {"semantic", "treesitter"},
+		classifier.RepositoryQuery:   {"semantic", "treesitter"},
+		classifier.ReferenceQuery:    {"semantic", "treesitter", "grep"},
+		classifier.CallQuery:         {"semantic", "treesitter", "reference"},
+		classifier.ArchitectureQuery: {"semantic", "grep"},
+		classifier.FlowQuery:         {"semantic", "callgraph", "treesitter"},
 	}
 
 	primaryName := route[cl.Class]
@@ -136,7 +136,7 @@ func (r *AutoRetriever) Retrieve(ctx context.Context, query string) ([]Retrieval
 	}
 
 	if len(results) == 0 {
-		for _, name := range []string{"grep", "fts", "treesitter"} {
+		for _, name := range []string{"semantic", "grep", "treesitter"} {
 			if name == primaryName {
 				continue
 			}

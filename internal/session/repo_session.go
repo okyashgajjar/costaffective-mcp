@@ -3,19 +3,19 @@ package session
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/okyashgajjar/costaffective-mcp/internal/cache"
-	"github.com/okyashgajjar/costaffective-mcp/internal/discovery_memory"
-	"github.com/okyashgajjar/costaffective-mcp/internal/kmemory"
-	"github.com/okyashgajjar/costaffective-mcp/internal/repo_memory"
-	"github.com/okyashgajjar/costaffective-mcp/internal/repository"
-	"github.com/okyashgajjar/costaffective-mcp/internal/retrieval"
-	"github.com/okyashgajjar/costaffective-mcp/internal/stash"
-	"github.com/okyashgajjar/costaffective-mcp/internal/treesitter"
+	"github.com/okyashgajjar/costwise-mcp/internal/cache"
+	"github.com/okyashgajjar/costwise-mcp/internal/discovery_memory"
+	"github.com/okyashgajjar/costwise-mcp/internal/kmemory"
+	"github.com/okyashgajjar/costwise-mcp/internal/ledger"
+	"github.com/okyashgajjar/costwise-mcp/internal/repo_memory"
+	"github.com/okyashgajjar/costwise-mcp/internal/repository"
+	"github.com/okyashgajjar/costwise-mcp/internal/retrieval"
+	"github.com/okyashgajjar/costwise-mcp/internal/stash"
+	"github.com/okyashgajjar/costwise-mcp/internal/treesitter"
 )
 
 // RepoSession represents the stateful repository context for a conversation.
@@ -72,6 +72,10 @@ func newRepoSession(ctx context.Context, repoRoot string, sessionID string, shou
 		}
 	}
 
+	// Attempt to fetch a pre-computed artifact from remote before local indexing starts.
+	// This runs fast and skips if a cache already exists locally.
+	_ = cache.AttemptRemoteFetch(ctx, info.Root)
+
 	db, err := treesitter.NewSymbolDB(info.Root)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open symbol DB: %w", err)
@@ -98,12 +102,13 @@ func newRepoSession(ctx context.Context, repoRoot string, sessionID string, shou
 		return nil, fmt.Errorf("failed to open cache: %w", err)
 	}
 
-	repoMemPath := filepath.Join(os.TempDir(), "repo_memory.db")
+	idxDir := filepath.Join(info.Root, ".mycli-fts")
+	repoMemPath := filepath.Join(idxDir, "repo_memory.db")
 	repoMem, err := repo_memory.Init(repoMemPath)
 	if err != nil {
 		return nil, fmt.Errorf("init repo memory: %w", err)
 	}
-	discMemPath := filepath.Join(os.TempDir(), "discovery_memory.db")
+	discMemPath := filepath.Join(idxDir, "discovery_memory.db")
 	discMem, err := discovery_memory.Init(discMemPath)
 	if err != nil {
 		return nil, fmt.Errorf("init discovery memory: %w", err)
@@ -167,13 +172,24 @@ func (rs *RepoSession) RecallFacts(query string) []string {
 	return out
 }
 
-// Close releases all underlying resources.
 func (rs *RepoSession) Close() {
+	if rs.Indexer != nil {
+		rs.Indexer.Close()
+	}
 	if rs.DB != nil {
 		rs.DB.Close()
 	}
 	if rs.Cache != nil {
 		rs.Cache.Close()
+	}
+	if rs.RepoMem != nil {
+		rs.RepoMem.Close()
+	}
+	if rs.DiscMem != nil {
+		rs.DiscMem.Close()
+	}
+	if rs.Repo != nil && rs.Repo.Root != "" {
+		ledger.Close(rs.Repo.Root)
 	}
 }
 

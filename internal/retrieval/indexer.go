@@ -9,7 +9,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/okyashgajjar/costaffective-mcp/internal/treesitter"
+	"github.com/okyashgajjar/costwise-mcp/internal/index"
+	"github.com/okyashgajjar/costwise-mcp/internal/ontology"
+	"github.com/okyashgajjar/costwise-mcp/internal/treesitter"
+	"os/exec"
 )
 
 // IndexConfig controls which parse stages the SharedIndexer runs.
@@ -34,16 +37,26 @@ type IndexResult struct {
 // and supports incremental updates.
 type SharedIndexer struct {
 	db       *treesitter.SymbolDB
+	semantic *index.SemanticIndexer
 	repoRoot string
 	config   IndexConfig
 }
 
 // NewSharedIndexer creates a new SharedIndexer.
 func NewSharedIndexer(db *treesitter.SymbolDB, repoRoot string, cfg IndexConfig) *SharedIndexer {
+	semIdx, _ := index.NewSemanticIndexer(filepath.Join(repoRoot, ".mycli-fts"))
 	return &SharedIndexer{
 		db:       db,
+		semantic: semIdx,
 		repoRoot: repoRoot,
 		config:   cfg,
+	}
+}
+
+// Close releases resources.
+func (idx *SharedIndexer) Close() {
+	if idx.semantic != nil {
+		idx.semantic.Close()
 	}
 }
 
@@ -121,6 +134,23 @@ func (idx *SharedIndexer) Index(ctx context.Context) (*IndexResult, error) {
 					if err := idx.db.StoreSymbols(symbols); err != nil {
 						return err
 					}
+					
+					var allTags []treesitter.InsertOntologyTagParams
+					for _, sym := range symbols {
+						tags := ontology.AnalyzeSymbol(sym)
+						id := treesitter.SymbolID(sym.Name, string(sym.Kind), sym.File, sym.StartLine)
+						for _, t := range tags {
+							allTags = append(allTags, treesitter.InsertOntologyTagParams{
+								SymbolID: id,
+								Tag:      t.Concept,
+								Domain:   t.Domain,
+								File:     sym.File,
+							})
+						}
+					}
+					if len(allTags) > 0 {
+						_ = idx.db.StoreOntologyTags(allTags)
+					}
 				}
 			}
 		}
@@ -159,6 +189,14 @@ func (idx *SharedIndexer) Index(ctx context.Context) (*IndexResult, error) {
 		if err := idx.db.MarkFileIndexed(relPath, newHash); err != nil {
 			return err
 		}
+
+		if idx.semantic != nil {
+			// Basic AST extraction for docstrings
+			docstrings := ""
+			// Removed sym.Doc as treesitter.Symbol doesn't support it yet.
+			_ = idx.semantic.IndexFile(relPath, string(data), docstrings)
+		}
+
 		result.Changed++
 		return nil
 	})
@@ -183,12 +221,29 @@ func (idx *SharedIndexer) Index(ctx context.Context) (*IndexResult, error) {
 			if err := idx.db.MarkFileIndexed(oldFile, ""); err != nil {
 				return result, err
 			}
+			if idx.semantic != nil {
+				_ = idx.semantic.RemoveFile(oldFile)
+			}
 			result.Deleted++
 		}
 	}
 
 	result.LatencyMs = time.Since(start).Milliseconds()
+
+	// SCIP Generation integration
+	if isGoRepo(idx.repoRoot) {
+		scipPath := filepath.Join(idx.repoRoot, ".mycli-fts", "index.scip")
+		cmd := exec.Command("scip-go", "--output", scipPath)
+		cmd.Dir = idx.repoRoot
+		_ = cmd.Run() // Best effort, ignore errors if scip-go is missing or fails
+	}
+
 	return result, nil
+}
+
+func isGoRepo(repoRoot string) bool {
+	_, err := os.Stat(filepath.Join(repoRoot, "go.mod"))
+	return err == nil
 }
 
 // DB returns the underlying SymbolDB for reuse by retrievers.

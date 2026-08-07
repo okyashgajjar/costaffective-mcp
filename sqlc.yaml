@@ -1,0 +1,9 @@
+version: "2"
+sql:
+  - schema: "internal/treesitter/schema.sql"
+    queries: "internal/treesitter/query.sql"
+    engine: "sqlite"
+    gen:
+      go:
+        package: "treesitter"
+        out: "internal/treesitter"

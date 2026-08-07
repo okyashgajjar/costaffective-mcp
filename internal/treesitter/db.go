@@ -1,6 +1,7 @@
 package treesitter
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -15,6 +16,7 @@ import (
 
 type SymbolDB struct {
 	db       *sql.DB
+	queries  *Queries
 	repoRoot string
 }
 
@@ -37,10 +39,10 @@ func NewSymbolDB(repoRoot string) (*SymbolDB, error) {
 		return nil, err
 	}
 
-	return &SymbolDB{db: db, repoRoot: repoRoot}, nil
+	return &SymbolDB{db: db, queries: New(db), repoRoot: repoRoot}, nil
 }
 
-const schemaVersion = 4
+const schemaVersion = 5
 
 func createSymbolTables(db *sql.DB) error {
 	_, err := db.Exec(`
@@ -101,6 +103,18 @@ func createSymbolTables(db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_calls_callee ON call_edges(callee_name);
 		CREATE INDEX IF NOT EXISTS idx_calls_caller ON call_edges(caller_name);
 		CREATE INDEX IF NOT EXISTS idx_calls_file ON call_edges(file);
+
+		CREATE TABLE IF NOT EXISTS ontology_tags (
+			symbol_id TEXT NOT NULL,
+			tag TEXT NOT NULL,
+			domain TEXT NOT NULL DEFAULT '',
+			file TEXT NOT NULL
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_ontology_tags_tag ON ontology_tags(tag);
+		CREATE INDEX IF NOT EXISTS idx_ontology_tags_domain ON ontology_tags(domain);
+		CREATE INDEX IF NOT EXISTS idx_ontology_tags_symbol ON ontology_tags(symbol_id);
+		CREATE INDEX IF NOT EXISTS idx_ontology_tags_file ON ontology_tags(file);
 	`)
 	if err != nil {
 		return err
@@ -127,6 +141,9 @@ func createSymbolTables(db *sql.DB) error {
 		if _, err := db.Exec("DELETE FROM call_edges"); err != nil {
 			return err
 		}
+		if _, err := db.Exec("DELETE FROM ontology_tags"); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -135,7 +152,7 @@ func (s *SymbolDB) Close() error {
 	return s.db.Close()
 }
 
-func symbolID(name, kind, file string, line int) string {
+func SymbolID(name, kind, file string, line int) string {
 	h := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%s|%d", name, kind, file, line)))
 	return hex.EncodeToString(h[:8])
 }
@@ -147,18 +164,22 @@ func (s *SymbolDB) StoreSymbols(symbols []Symbol) error {
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO symbols (id, name, kind, language, file, start_line, end_line, signature, content, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-	`)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
+	q := s.queries.WithTx(tx)
+	ctx := context.Background()
 
 	for _, sym := range symbols {
-		id := symbolID(sym.Name, string(sym.Kind), sym.File, sym.StartLine)
-		if _, err := stmt.Exec(id, sym.Name, string(sym.Kind), sym.Language, sym.File, sym.StartLine, sym.EndLine, sym.Signature, sym.Content); err != nil {
+		id := SymbolID(sym.Name, string(sym.Kind), sym.File, sym.StartLine)
+		if err := q.InsertSymbol(ctx, InsertSymbolParams{
+			ID:        id,
+			Name:      sym.Name,
+			Kind:      string(sym.Kind),
+			Language:  sym.Language,
+			File:      sym.File,
+			StartLine: int64(sym.StartLine),
+			EndLine:   int64(sym.EndLine),
+			Signature: sym.Signature,
+			Content:   sym.Content,
+		}); err != nil {
 			return err
 		}
 	}
@@ -167,22 +188,21 @@ func (s *SymbolDB) StoreSymbols(symbols []Symbol) error {
 }
 
 func (s *SymbolDB) ClearFile(filePath string) error {
-	_, err := s.db.Exec("DELETE FROM symbols WHERE file = ?", filePath)
-	return err
+	_ = s.queries.ClearFileOntologyTags(context.Background(), filePath)
+	return s.queries.ClearFile(context.Background(), filePath)
 }
 
 func (s *SymbolDB) MarkFileIndexed(filePath, hash string) error {
-	_, err := s.db.Exec(`
-		INSERT OR REPLACE INTO symbol_files (file_path, file_hash, last_indexed)
-		VALUES (?, ?, ?)
-	`, filePath, hash, time.Now())
-	return err
+	return s.queries.InsertSymbolFile(context.Background(), InsertSymbolFileParams{
+		FilePath:    filePath,
+		FileHash:    hash,
+		LastIndexed: time.Now(),
+	})
 }
 
 func (s *SymbolDB) GetFileHash(filePath string) string {
-	var h string
-	_ = s.db.QueryRow("SELECT file_hash FROM symbol_files WHERE file_path = ?", filePath).Scan(&h)
-	return h
+	hash, _ := s.queries.GetFileHash(context.Background(), filePath)
+	return hash
 }
 
 func (s *SymbolDB) StoreReferences(refs []Reference) error {
@@ -192,18 +212,19 @@ func (s *SymbolDB) StoreReferences(refs []Reference) error {
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare(`
-		INSERT INTO references_t (symbol_name, file, line, col, ref_type, context)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
+	q := s.queries.WithTx(tx)
+	ctx := context.Background()
 
 	for _, ref := range refs {
 		refType := ref.RefType.String()
-		if _, err := stmt.Exec(ref.SymbolName, ref.File, ref.Line, ref.Column, refType, ref.Context); err != nil {
+		if err := q.InsertReference(ctx, InsertReferenceParams{
+			SymbolName: ref.SymbolName,
+			File:       ref.File,
+			Line:       int64(ref.Line),
+			Col:        int64(ref.Column),
+			RefType:    refType,
+			Context:    ref.Context,
+		}); err != nil {
 			return err
 		}
 	}
@@ -212,78 +233,48 @@ func (s *SymbolDB) StoreReferences(refs []Reference) error {
 }
 
 func (s *SymbolDB) ClearFileReferences(filePath string) error {
-	_, err := s.db.Exec("DELETE FROM references_t WHERE file = ?", filePath)
-	return err
+	return s.queries.ClearFileReferences(context.Background(), filePath)
+}
+
+func mapReferences(rows []SearchReferencesRow) []Reference {
+	var refs []Reference
+	for _, row := range rows {
+		ref := Reference{
+			SymbolName: row.SymbolName,
+			File:       row.File,
+			Line:       int(row.Line),
+			Column:     int(row.Col),
+			Context:    row.Context,
+		}
+		switch row.RefType {
+		case "definition":
+			ref.RefType = RefDefinition
+		case "reference":
+			ref.RefType = RefReference
+		case "import":
+			ref.RefType = RefImport
+		case "export":
+			ref.RefType = RefExport
+		}
+		refs = append(refs, ref)
+	}
+	return refs
 }
 
 func (s *SymbolDB) SearchReferences(symbolName string) ([]Reference, error) {
-	rows, err := s.db.Query(`
-		SELECT symbol_name, file, line, col, ref_type, context
-		FROM references_t
-		WHERE symbol_name = ?
-		ORDER BY ref_type, file, line
-	`, symbolName)
+	rows, err := s.queries.SearchReferences(context.Background(), symbolName)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var refs []Reference
-	for rows.Next() {
-		var ref Reference
-		var refTypeStr string
-		if err := rows.Scan(&ref.SymbolName, &ref.File, &ref.Line, &ref.Column, &refTypeStr, &ref.Context); err != nil {
-			continue
-		}
-		switch refTypeStr {
-		case "definition":
-			ref.RefType = RefDefinition
-		case "reference":
-			ref.RefType = RefReference
-		case "import":
-			ref.RefType = RefImport
-		case "export":
-			ref.RefType = RefExport
-		}
-		refs = append(refs, ref)
-	}
-
-	return refs, nil
+	return mapReferences(rows), nil
 }
 
 func (s *SymbolDB) SearchReferencesLike(partial string) ([]Reference, error) {
-	rows, err := s.db.Query(`
-		SELECT symbol_name, file, line, col, ref_type, context
-		FROM references_t
-		WHERE symbol_name LIKE ?
-		ORDER BY ref_type, file, line
-	`, "%"+partial+"%")
+	rows, err := s.queries.SearchReferencesLike(context.Background(), "%"+partial+"%")
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var refs []Reference
-	for rows.Next() {
-		var ref Reference
-		var refTypeStr string
-		if err := rows.Scan(&ref.SymbolName, &ref.File, &ref.Line, &ref.Column, &refTypeStr, &ref.Context); err != nil {
-			continue
-		}
-		switch refTypeStr {
-		case "definition":
-			ref.RefType = RefDefinition
-		case "reference":
-			ref.RefType = RefReference
-		case "import":
-			ref.RefType = RefImport
-		case "export":
-			ref.RefType = RefExport
-		}
-		refs = append(refs, ref)
-	}
-
-	return refs, nil
+	return mapReferences(rows), nil
 }
 
 func (s *SymbolDB) StoreCallEdges(edges []CallEdge) error {
@@ -293,17 +284,18 @@ func (s *SymbolDB) StoreCallEdges(edges []CallEdge) error {
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare(`
-		INSERT INTO call_edges (caller_name, caller_file, callee_name, file, line, language)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
+	q := s.queries.WithTx(tx)
+	ctx := context.Background()
 
 	for _, e := range edges {
-		if _, err := stmt.Exec(e.CallerName, e.CallerFile, e.CalleeName, e.File, e.Line, e.Language); err != nil {
+		if err := q.InsertCallEdge(ctx, InsertCallEdgeParams{
+			CallerName: e.CallerName,
+			CallerFile: e.CallerFile,
+			CalleeName: e.CalleeName,
+			File:       e.File,
+			Line:       int64(e.Line),
+			Language:   e.Language,
+		}); err != nil {
 			return err
 		}
 	}
@@ -312,89 +304,57 @@ func (s *SymbolDB) StoreCallEdges(edges []CallEdge) error {
 }
 
 func (s *SymbolDB) ClearFileCallEdges(filePath string) error {
-	_, err := s.db.Exec("DELETE FROM call_edges WHERE file = ?", filePath)
-	return err
+	return s.queries.ClearFileCallEdges(context.Background(), filePath)
+}
+
+func mapCallEdges(rows []SearchCallEdgesRow) []CallEdge {
+	var edges []CallEdge
+	for _, row := range rows {
+		edges = append(edges, CallEdge{
+			ID:         int(row.ID),
+			CallerName: row.CallerName,
+			CallerFile: row.CallerFile,
+			CalleeName: row.CalleeName,
+			File:       row.File,
+			Line:       int(row.Line),
+			Language:   row.Language,
+		})
+	}
+	return edges
 }
 
 func (s *SymbolDB) SearchCallEdgesByCaller(callerName string) ([]CallEdge, error) {
-	rows, err := s.db.Query(`
-		SELECT id, caller_name, caller_file, callee_name, file, line, language
-		FROM call_edges
-		WHERE caller_name = ?
-		ORDER BY callee_name, file, line
-	`, callerName)
+	rows, err := s.queries.SearchCallEdgesByCaller(context.Background(), callerName)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var edges []CallEdge
-	for rows.Next() {
-		var e CallEdge
-		if err := rows.Scan(&e.ID, &e.CallerName, &e.CallerFile, &e.CalleeName, &e.File, &e.Line, &e.Language); err != nil {
-			continue
-		}
-		edges = append(edges, e)
-	}
-	return edges, nil
+	return mapCallEdges(rows), nil
 }
 
 func (s *SymbolDB) SearchCallEdges(calleeName string) ([]CallEdge, error) {
-	rows, err := s.db.Query(`
-		SELECT id, caller_name, caller_file, callee_name, file, line, language
-		FROM call_edges
-		WHERE callee_name = ?
-		ORDER BY caller_name, file, line
-	`, calleeName)
+	rows, err := s.queries.SearchCallEdges(context.Background(), calleeName)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var edges []CallEdge
-	for rows.Next() {
-		var e CallEdge
-		if err := rows.Scan(&e.ID, &e.CallerName, &e.CallerFile, &e.CalleeName, &e.File, &e.Line, &e.Language); err != nil {
-			continue
-		}
-		edges = append(edges, e)
-	}
-	return edges, nil
+	return mapCallEdges(rows), nil
 }
 
 func (s *SymbolDB) SearchCallEdgesLike(partial string) ([]CallEdge, error) {
-	rows, err := s.db.Query(`
-		SELECT id, caller_name, caller_file, callee_name, file, line, language
-		FROM call_edges
-		WHERE callee_name LIKE ?
-		ORDER BY caller_name, file, line
-	`, "%"+partial+"%")
+	rows, err := s.queries.SearchCallEdgesLike(context.Background(), "%"+partial+"%")
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var edges []CallEdge
-	for rows.Next() {
-		var e CallEdge
-		if err := rows.Scan(&e.ID, &e.CallerName, &e.CallerFile, &e.CalleeName, &e.File, &e.Line, &e.Language); err != nil {
-			continue
-		}
-		edges = append(edges, e)
-	}
-	return edges, nil
+	return mapCallEdges(rows), nil
 }
 
 func (s *SymbolDB) GetCallEdgeCount() int {
-	var count int
-	_ = s.db.QueryRow("SELECT COUNT(*) FROM call_edges").Scan(&count)
-	return count
+	c, _ := s.queries.GetCallEdgeCount(context.Background())
+	return int(c)
 }
 
 func (s *SymbolDB) GetReferenceCount() int {
-	var count int
-	_ = s.db.QueryRow("SELECT COUNT(*) FROM references_t").Scan(&count)
-	return count
+	c, _ := s.queries.GetReferenceCount(context.Background())
+	return int(c)
 }
 
 func (s *SymbolDB) Search(query string, limit int) ([]SymbolMatch, error) {
@@ -402,36 +362,32 @@ func (s *SymbolDB) Search(query string, limit int) ([]SymbolMatch, error) {
 		limit = 20
 	}
 
-	q := `SELECT name, kind, language, file, start_line, end_line, signature
-		FROM symbols WHERE (
-			name LIKE ? OR
-			name LIKE ? OR
-			signature LIKE ?
-		)
-		ORDER BY
-			CASE
-				WHEN name LIKE ? THEN 0
-				WHEN name LIKE ? THEN 1
-				ELSE 2
-			END,
-			start_line ASC
-		LIMIT ?`
-
 	exact := query
 	prefix := query + "%"
 	partial := "%" + query + "%"
 
-	rows, err := s.db.Query(q, exact, prefix, partial, exact, prefix, limit)
+	rows, err := s.queries.Search(context.Background(), SearchParams{
+		Name:      exact,
+		Name_2:    prefix,
+		Signature: partial,
+		Name_3:    exact,
+		Name_4:    prefix,
+		Limit:     int64(limit),
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	var matches []SymbolMatch
-	for rows.Next() {
-		var sym Symbol
-		if err := rows.Scan(&sym.Name, &sym.Kind, &sym.Language, &sym.File, &sym.StartLine, &sym.EndLine, &sym.Signature); err != nil {
-			continue
+	for _, row := range rows {
+		sym := Symbol{
+			Name:      row.Name,
+			Kind:      SymbolKind(row.Kind),
+			Language:  row.Language,
+			File:      row.File,
+			StartLine: int(row.StartLine),
+			EndLine:   int(row.EndLine),
+			Signature: row.Signature,
 		}
 		score := computeSymbolScore(query, sym)
 		matches = append(matches, SymbolMatch{
@@ -448,26 +404,27 @@ func (s *SymbolDB) SearchByKind(kind SymbolKind, limit int) ([]SymbolMatch, erro
 		limit = 20
 	}
 
-	rows, err := s.db.Query(`
-		SELECT name, kind, language, file, start_line, end_line, signature
-		FROM symbols WHERE kind = ?
-		ORDER BY file, start_line ASC
-		LIMIT ?
-	`, string(kind), limit)
+	rows, err := s.queries.SearchByKind(context.Background(), SearchByKindParams{
+		Kind:  string(kind),
+		Limit: int64(limit),
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	var matches []SymbolMatch
-	for rows.Next() {
-		var sym Symbol
-		if err := rows.Scan(&sym.Name, &sym.Kind, &sym.Language, &sym.File, &sym.StartLine, &sym.EndLine, &sym.Signature); err != nil {
-			continue
-		}
+	for _, row := range rows {
 		matches = append(matches, SymbolMatch{
-			Symbol: sym,
-			Score:  0.8,
+			Symbol: Symbol{
+				Name:      row.Name,
+				Kind:      SymbolKind(row.Kind),
+				Language:  row.Language,
+				File:      row.File,
+				StartLine: int(row.StartLine),
+				EndLine:   int(row.EndLine),
+				Signature: row.Signature,
+			},
+			Score: 0.8,
 		})
 	}
 
@@ -475,82 +432,53 @@ func (s *SymbolDB) SearchByKind(kind SymbolKind, limit int) ([]SymbolMatch, erro
 }
 
 func (s *SymbolDB) GetSymbolCount() int {
-	var count int
-	_ = s.db.QueryRow("SELECT COUNT(*) FROM symbols").Scan(&count)
-	return count
+	c, _ := s.queries.GetSymbolCount(context.Background())
+	return int(c)
 }
 
-// GetSymbolRange returns the start and end line for a symbol by name and file.
 func (s *SymbolDB) GetSymbolRange(name, file string) (int, int, error) {
-	var startLine, endLine int
-	err := s.db.QueryRow(`
-		SELECT start_line, end_line FROM symbols
-		WHERE name = ? AND file = ?
-		ORDER BY start_line ASC LIMIT 1
-	`, name, file).Scan(&startLine, &endLine)
+	row, err := s.queries.GetSymbolRange(context.Background(), GetSymbolRangeParams{
+		Name: name,
+		File: file,
+	})
 	if err != nil {
 		return 0, 0, err
 	}
-	return startLine, endLine, nil
+	return int(row.StartLine), int(row.EndLine), nil
 }
 
-// GetFileSymbols returns all symbols for a given file path.
 func (s *SymbolDB) GetFileSymbols(filePath string) ([]Symbol, error) {
-	rows, err := s.db.Query(`
-		SELECT name, kind, language, file, start_line, end_line, signature
-		FROM symbols WHERE file = ?
-		ORDER BY start_line ASC
-	`, filePath)
+	rows, err := s.queries.GetFileSymbols(context.Background(), filePath)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
 	var symbols []Symbol
-	for rows.Next() {
-		var sym Symbol
-		if err := rows.Scan(&sym.Name, &sym.Kind, &sym.Language, &sym.File, &sym.StartLine, &sym.EndLine, &sym.Signature); err != nil {
-			continue
-		}
-		symbols = append(symbols, sym)
+	for _, row := range rows {
+		symbols = append(symbols, Symbol{
+			Name:      row.Name,
+			Kind:      SymbolKind(row.Kind),
+			Language:  row.Language,
+			File:      row.File,
+			StartLine: int(row.StartLine),
+			EndLine:   int(row.EndLine),
+			Signature: row.Signature,
+		})
 	}
 	return symbols, nil
 }
 
-// GetAllFiles returns all indexed file paths.
 func (s *SymbolDB) GetAllFiles() ([]string, error) {
-	rows, err := s.db.Query("SELECT file_path FROM symbol_files ORDER BY file_path")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var files []string
-	for rows.Next() {
-		var f string
-		if err := rows.Scan(&f); err != nil {
-			continue
-		}
-		files = append(files, f)
-	}
-	return files, nil
+	return s.queries.GetAllFiles(context.Background())
 }
 
-// GetFilesByHash returns a map of file_path -> file_hash for all indexed files.
 func (s *SymbolDB) GetFilesByHash() (map[string]string, error) {
-	rows, err := s.db.Query("SELECT file_path, file_hash FROM symbol_files")
+	rows, err := s.queries.GetFilesByHash(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
 	result := make(map[string]string)
-	for rows.Next() {
-		var path, hash string
-		if err := rows.Scan(&path, &hash); err != nil {
-			continue
-		}
-		result[path] = hash
+	for _, row := range rows {
+		result[row.FilePath] = row.FileHash
 	}
 	return result, nil
 }
@@ -608,4 +536,55 @@ func splitCamel(s string) []string {
 		parts = append(parts, string(cur))
 	}
 	return parts
+}
+
+func stringsContains(s, substr string) bool {
+	return strings.Contains(s, substr)
+}
+
+func (s *SymbolDB) StoreOntologyTags(tags []InsertOntologyTagParams) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	q := s.queries.WithTx(tx)
+	ctx := context.Background()
+
+	for _, tag := range tags {
+		if err := q.InsertOntologyTag(ctx, tag); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (s *SymbolDB) SearchOntology(tag, domain string) ([]SymbolMatch, error) {
+	rows, err := s.queries.SearchOntology(context.Background(), SearchOntologyParams{
+		Tag:    tag,
+		Domain: domain,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var matches []SymbolMatch
+	for _, row := range rows {
+		matches = append(matches, SymbolMatch{
+			Symbol: Symbol{
+				Name:      row.Name,
+				Kind:      SymbolKind(row.Kind),
+				Language:  row.Language,
+				File:      row.File,
+				StartLine: int(row.StartLine),
+				EndLine:   int(row.EndLine),
+				Signature: row.Signature,
+			},
+			Score: 1.0,
+		})
+	}
+
+	return matches, nil
 }

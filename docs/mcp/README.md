@@ -1,10 +1,10 @@
 # MCP Installation Guides
 
-This directory contains installation guides for the CostAffective MCP server across all supported AI coding clients.
+This directory contains installation guides for the CostWise MCP server across all supported AI coding clients.
 
-## What is CostAffective MCP?
+## What is CostWise MCP?
 
-The CostAffective MCP server (`costaffective serve`) provides 7 retrieval and maintenance tools via the [Model Context Protocol](https://modelcontextprotocol.io), plus 3 context-control tools (see the main README for the full catalog):
+The CostWise MCP server (`costwise serve`) provides 7 retrieval and maintenance tools via the [Model Context Protocol](https://modelcontextprotocol.io), plus 3 context-control tools (see the main README for the full catalog):
 
 | Tool | Description |
 |------|-------------|
@@ -13,8 +13,14 @@ The CostAffective MCP server (`costaffective serve`) provides 7 retrieval and ma
 | `read_symbol` | Return a symbol's full implementation body by name |
 | `find_references` | Find all references to a symbol |
 | `find_callers` | Find functions that call a given function |
+| `query_ontology` | Filter the repository AST by semantic tags like IsCore |
+| `analyze_impact` | Generate a causality graph to trace the blast radius of a change |
 | `get_repository_summary` | High-level repo overview (modules, files, languages) |
 | `index_repository` | Trigger re-indexing of the codebase |
+| `stash_context` | Park a large blob out of context behind a tiny handle |
+| `recall` | Pull back only the slice that matches a query |
+| `remember` | Persist a fact once instead of repeating it inline |
+| `validate_architecture` | Enforce AST-based layer boundaries |
 
 No API key is required — this is a pure retrieval server with no LLM dependency.
 
@@ -32,13 +38,13 @@ No API key is required — this is a pure retrieval server with no LLM dependenc
 
 ## Quick Install
 
-### Via CostAffective (recommended)
+### Via CostWise (recommended)
 
-The `costaffective install` command auto-detects installed AI coding clients and writes the correct MCP config for each:
+The `costwise install` command auto-detects installed AI coding clients and writes the correct MCP config for each:
 
 ```bash
-cd /path/to/CostAffective-CLI/CLI
-go run ./cmd/costaffective/ install
+cd /path/to/CostWise-CLI/CLI
+go run ./cmd/costwise/ install
 ```
 
 Options:
@@ -51,17 +57,17 @@ Options:
 | `--dry-run` | Show what would be done without making changes |
 | `--build=false` | Skip binary build (if already built) |
 
-### Via install script
+### Via install script (recommended for first-time setup)
 
 ```bash
-bash install-mcp.sh
+bash install.sh
 ```
 
 ## Build From Source
 
 ```bash
-cd /path/to/CostAffective-CLI/CLI
-go build -o /usr/local/bin/costaffective ./cmd/costaffective/
+cd /path/to/CostWise-CLI/CLI
+go build -o /usr/local/bin/costwise ./cmd/costwise/
 ```
 
 ## Verification
@@ -77,19 +83,22 @@ The client should automatically invoke the appropriate MCP tools.
 ```
 AI Client (MCP Host)
     │
-    ├── stdio transport ──► costaffective serve (MCP Server)
+    ├── stdio transport ──► costwise serve (MCP Server)
     │                           │
-    │                           ├── search_code ───────────► tree-sitter AST match
+    │                           ├── search_code ───────────► Bluge / tree-sitter AST match
     │                           ├── find_symbol ───────────► SymbolDB lookup
     │                           ├── find_references ───────► SymbolDB reference search
     │                           ├── find_callers ──────────► SymbolDB call graph
+    │                           ├── query_ontology ────────► Ontology tag matching
+    │                           ├── analyze_impact ────────► Recursive causality graph traversal
     │                           ├── get_repository_summary ► KnowledgeStore
-    │                           └── index_repository ──────► SharedIndexer
+    │                           ├── validate_architecture ─► PolicyEngine (costwise-architecture.yaml)
+    │                           └── context-tools ─────────► Stash, Facts, and Ledger
 ```
 
 ## Troubleshooting
 
-1. **Binary not found**: Ensure `costaffective` is in your PATH or use an absolute path
-2. **Server won't start**: Run `costaffective serve` directly to see error output
+1. **Binary not found**: Ensure `costwise` is in your PATH or use an absolute path
+2. **Server won't start**: Run `costwise serve` directly to see error output
 3. **Tools not appearing**: Restart your IDE/CLI client after making config changes
 4. **Config syntax errors**: Validate JSON with `python3 -m json.tool`

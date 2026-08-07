@@ -6,11 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/okyashgajjar/costaffective-mcp/internal/repository"
+	"github.com/okyashgajjar/costwise-mcp/internal/repository"
 )
 
 type GrepRetriever struct {
@@ -91,8 +92,8 @@ func (r *GrepRetriever) Retrieve(ctx context.Context, query string) ([]Retrieval
 
 		relPath, _ := filepath.Rel(r.repo.Root, filePath)
 
-		keywordDensity := float64(len(fileMatches)) / float64(maxInt(1, len(lines)))
-		uniqueRatio := float64(len(matchedTerms)) / float64(maxInt(1, len(keywords)))
+		keywordDensity := float64(len(fileMatches)) / float64(max(1, len(lines)))
+		uniqueRatio := float64(len(matchedTerms)) / float64(max(1, len(keywords)))
 		recency := 0.0
 		if len(fileMatches) > 0 && len(lines) > 0 {
 			firstMatchRatio := float64(fileMatches[0]) / float64(len(lines))
@@ -183,8 +184,8 @@ func (r *GrepRetriever) Retrieve(ctx context.Context, query string) ([]Retrieval
 				sort.Ints(fileMatches)
 				relPath, _ := filepath.Rel(r.repo.Root, filePath)
 
-				keywordDensity := float64(len(fileMatches)) / float64(maxInt(1, len(allLines)))
-				uniqueRatio := float64(len(matchedTerms)) / float64(maxInt(1, len(keywords)))
+				keywordDensity := float64(len(fileMatches)) / float64(max(1, len(allLines)))
+				uniqueRatio := float64(len(matchedTerms)) / float64(max(1, len(keywords)))
 				recency := 0.0
 				if len(fileMatches) > 0 && len(allLines) > 0 {
 					firstMatchRatio := float64(fileMatches[0]) / float64(len(allLines))
@@ -251,32 +252,38 @@ func (r *GrepRetriever) Retrieve(ctx context.Context, query string) ([]Retrieval
 		}
 
 		if hasRG {
-			cmd := exec.Command(rgPath, append(searchFlags, keyword, r.repo.Root)...)
+			cmd := exec.Command(rgPath, append(searchFlags, "--", keyword, r.repo.Root)...)
 			searchInFileContent(cmd, 1.0)
 		} else if hasGrep {
-			cmd := exec.Command(grepPath, append(searchFlags, "-r", keyword, r.repo.Root)...)
+			cmd := exec.Command(grepPath, append(searchFlags, "-r", "--", keyword, r.repo.Root)...)
 			searchInFileContent(cmd, 1.0)
 		}
 	}
 
-	filenameCMD := exec.Command("find", r.repo.Root, "-maxdepth", "3", "-iname", fmt.Sprintf("*%s*", keywords[0]), "-not", "-path", "*/.git/*", "-not", "-path", "*/node_modules/*", "-not", "-path", "*/vendor/*")
-	if filenameOut, err := filenameCMD.Output(); err == nil {
-		filenameStr := strings.TrimSpace(string(filenameOut))
-		if filenameStr != "" {
-			for _, f := range strings.Split(filenameStr, "\n") {
-				if f == "" {
-					continue
-				}
-				if fi, err := os.Stat(f); err == nil && !fi.IsDir() {
-					if _, exists := fileMatchMap[f]; !exists {
-						searchInFile(f, 1.5)
-					} else {
-						fileMatchMap[f].score += 1.5
-					}
-				}
+	_ = filepath.WalkDir(r.repo.Root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			name := d.Name()
+			if name == ".git" || name == "node_modules" || name == "vendor" {
+				return filepath.SkipDir
+			}
+			depth := strings.Count(strings.TrimPrefix(path, r.repo.Root), string(os.PathSeparator))
+			if depth >= 3 {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.Contains(strings.ToLower(d.Name()), strings.ToLower(keywords[0])) {
+			if _, exists := fileMatchMap[path]; !exists {
+				searchInFile(path, 1.5)
+			} else {
+				fileMatchMap[path].score += 1.5
 			}
 		}
-	}
+		return nil
+	})
 
 	if totalMatches == 0 && len(fileMatchMap) > 0 {
 		for _, fm := range fileMatchMap {
@@ -408,6 +415,11 @@ func extractKeywords(query string) []string {
 		if len(w) < 2 || stopWords[w] {
 			continue
 		}
+		// Reject flag-like tokens that would be interpreted as rg/grep flags
+		// (e.g. --no-ignore, -e, -g). These are never valid search keywords.
+		if w[0] == '-' && len(w) > 1 && (w[1] == '-' || (w[1] >= 'a' && w[1] <= 'z')) {
+			continue
+		}
 		keywords = append(keywords, w)
 	}
 
@@ -506,15 +518,8 @@ func extractSnippetLines(lines []string, matchLines []int, context int) []string
 }
 
 func uniqueInts(ints []int) []int {
-	seen := make(map[int]bool)
-	var result []int
-	for _, i := range ints {
-		if !seen[i] {
-			seen[i] = true
-			result = append(result, i)
-		}
-	}
-	return result
+	slices.Sort(ints)
+	return slices.Compact(ints)
 }
 
 func countUniqueFiles(results []RetrievalResult) int {
@@ -523,11 +528,4 @@ func countUniqueFiles(results []RetrievalResult) int {
 		seen[r.File] = true
 	}
 	return len(seen)
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }

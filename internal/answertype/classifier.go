@@ -273,36 +273,30 @@ func Classify(query string, mode string) Classification {
 		}
 	}
 
-	for _, p := range locationPatterns {
-		if strings.HasPrefix(lower, p) {
-			return Classification{
-				Type:       Location,
-				Label:      "location",
-				Confidence: 0.9,
-				Reason:     "location_pattern",
-			}
+	if matchAny(lower, locationPatterns) {
+		return Classification{
+			Type:       Location,
+			Label:      "location",
+			Confidence: 0.9,
+			Reason:     "location_pattern",
 		}
 	}
 
-	for _, p := range callerPatterns {
-		if strings.HasPrefix(lower, p) {
-			return Classification{
-				Type:       Caller,
-				Label:      "caller",
-				Confidence: 0.9,
-				Reason:     "caller_pattern",
-			}
+	if matchAny(lower, callerPatterns) {
+		return Classification{
+			Type:       Caller,
+			Label:      "caller",
+			Confidence: 0.9,
+			Reason:     "caller_pattern",
 		}
 	}
 
-	for _, p := range referencePatterns {
-		if strings.HasPrefix(lower, p) {
-			return Classification{
-				Type:       Reference,
-				Label:      "reference",
-				Confidence: 0.9,
-				Reason:     "reference_pattern",
-			}
+	if matchAny(lower, referencePatterns) {
+		return Classification{
+			Type:       Reference,
+			Label:      "reference",
+			Confidence: 0.9,
+			Reason:     "reference_pattern",
 		}
 	}
 
@@ -342,47 +336,39 @@ func Classify(query string, mode string) Classification {
 		}
 	}
 
-	for _, p := range overviewPatterns {
-		if strings.HasPrefix(lower, p) {
-			return Classification{
-				Type:       Overview,
-				Label:      "overview",
-				Confidence: 0.9,
-				Reason:     "overview_pattern",
-			}
+	if matchAny(lower, overviewPatterns) {
+		return Classification{
+			Type:       Overview,
+			Label:      "overview",
+			Confidence: 0.9,
+			Reason:     "overview_pattern",
 		}
 	}
 
-	for _, p := range planPatterns {
-		if strings.HasPrefix(lower, p) {
-			return Classification{
-				Type:       Plan,
-				Label:      "plan",
-				Confidence: 0.85,
-				Reason:     "plan_pattern",
-			}
+	if matchAny(lower, planPatterns) {
+		return Classification{
+			Type:       Plan,
+			Label:      "plan",
+			Confidence: 0.85,
+			Reason:     "plan_pattern",
 		}
 	}
 
-	for _, p := range explanationPatterns {
-		if strings.HasPrefix(lower, p) {
-			return Classification{
-				Type:       Explanation,
-				Label:      "explanation",
-				Confidence: 0.7,
-				Reason:     "explanation_pattern",
-			}
+	if matchAny(lower, explanationPatterns) {
+		return Classification{
+			Type:       Explanation,
+			Label:      "explanation",
+			Confidence: 0.7,
+			Reason:     "explanation_pattern",
 		}
 	}
 
-	for _, p := range agentPatterns {
-		if strings.HasPrefix(lower, p) {
-			return Classification{
-				Type:       Plan,
-				Label:      "plan",
-				Confidence: 0.7,
-				Reason:     "implementation_pattern",
-			}
+	if matchAny(lower, agentPatterns) {
+		return Classification{
+			Type:       Plan,
+			Label:      "plan",
+			Confidence: 0.7,
+			Reason:     "implementation_pattern",
 		}
 	}
 
